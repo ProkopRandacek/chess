@@ -1,0 +1,5 @@
+fix valgrind errors
+pro depth > 1 leakuje for some reason
+-> check kdy muze exitnout func
+jeden board se leakne pri exitu z mainu
+c; make && valgrind --track-origins=yes --leak-check=full ./chess
