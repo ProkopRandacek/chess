@@ -27,8 +27,8 @@ int main(void) {
 		}
 		printf("\npossible moves: %d\n", l->count);
 		printf("score: %d\n", eval(&board, l->count));
-		printboard(&board, hl);
 getInput:
+		printboard(&board, hl);
 		readline(inp);
 		inp[strlen(inp)-1] = 0; // delete that ugly newline
 		printf("you entered: %s\n", inp);
@@ -55,8 +55,10 @@ getInput:
 				board = newBoard; // and replace it with new one
 				dfree(move);
 				printf("calculating AI move\n");
+				printboard(&board, hl);
 				move = makeAIMove(&board, 4);
 				applyMove(&newBoard, &board, move);
+				hl = ones(move->src) | ones(move->dst);
 				board = newBoard;
 				dfree(move);
 			} else {

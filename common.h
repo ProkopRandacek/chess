@@ -21,6 +21,12 @@
 #define ctz(x)      __builtin_ctzl(x)
 #define popcount(x) __builtin_popcountl(x)
 
+#define FG_BLK  ";30m"
+#define FG_GRN  ";42;30m"
+#define BG_BBLK "\033[0;100"
+#define BG_BWHT "\033[0;107"
+#define RST "\033[0m"
+
 #define list_val_t void*
 
 enum Color {

@@ -20,7 +20,7 @@ void bb2char(u64 bb, char board[8][8], char c) {
 
 void printboard(Board* b, u64 hl) {
 	char board[8][8] = {{' '}};
-	memset(&board, '.', 8 * 8 * sizeof(char));
+	memset(&board, ' ', 8 * 8 * sizeof(char));
 
 	for (int c = 0; c < 2; c++)
 		for (int p = 0; p < 6; p++)
@@ -30,10 +30,13 @@ void printboard(Board* b, u64 hl) {
 	for (int y = 0; y < 8; y++) {
 		printf("%d", 8 - y);
 		for (int x = 0; x < 8; x++) {
-			// TODO colors
-			printf(" %c", board[y][x]);
+			if ((x + y) % 2 != 0) printf(BG_BBLK);
+			else printf(BG_BWHT);
+			if (mask(x, y) & hl) printf(FG_GRN);
+			else printf(FG_BLK);
+			printf(" %c%s", board[y][x], RST);
 		}
-		printf(" %d\n", 8 - y);
+		printf("%d\n", 8 - y);
 	}
 	printf("  A B C D E F G H\n");
 }

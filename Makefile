@@ -3,7 +3,7 @@ CC = gcc
 SOURCES = main.c
 
 CC_WFLAGS = -Wall -Wextra -Wuninitialized -Waggregate-return -Wunreachable-code -Wfloat-equal -Wundef -Wshadow -Wpointer-arith -Wcast-align -Wstrict-prototypes -Wwrite-strings -Wcast-qual -Wswitch-default -Wswitch-enum -Wconversion -Wformat=2 -Winit-self -Wno-misleading-indentation -Wno-format-nonliteral
-CC_FLAGS  = $(GCC_WFLAGS) -std=c17 -march=native -Ofast
+CC_FLAGS  = $(CC_WFLAGS) -std=c17 -march=native -Ofast
 CC_LIB    = -lm
 
 NAME = chess

@@ -2,7 +2,7 @@
 
 - [ ] ui
   - [x] move input
-  - [ ] colors
+  - [x] colors
   - [ ] unicode chess pieces
   - [ ] pawn promotion user input
 - [ ] move gen
