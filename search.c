@@ -3,16 +3,18 @@ int minimax(Board* b, int d) {
 	genLegalMoves(b, l);
 	lpop(l);
 	if (d == 0) {
+		u32 count = l->count;
 		lfree(l);
-		return eval(b, l->count);
+		return eval(b, count);
 	}
 	int maxScore = checkmateScore;
 	ListNode* pos = l->first;
-	for (unsigned int i = 0; i < l->count; i++) {
-		Board* newB = applyMove(b, (Move*)pos->val);
-		int score = -minimax(newB, d - 1);
-		dfree(newB);
+	for (;;) {
+		Board newB;
+		applyMove(&newB, b, (Move*)pos->val);
+		int score = -minimax(&newB, d - 1);
 		maxScore = max(maxScore, score);
+		if (pos->next == 0) break;
 		pos = pos->next;
 	}
 	lfree(l); // TODO udělat tohle při iterování
@@ -27,15 +29,16 @@ Move* makeAIMove(Board* b, int d) {
 	lpop(l);
 	ListNode* pos = l->first;
 	for (unsigned int i = 0; i < l->count; i++) {
-		Board* newB = applyMove(b, (Move*)pos->val);
-		int score = -minimax(newB, d - 1);
-		dfree(newB);
+		Board newB;
+		applyMove(&newB, b, (Move*)pos->val);
+		int score = -minimax(&newB, d - 1);
 		if (score > maxScore) {
 			maxScore = score;
-			memcpy(bestMove, pos->val, sizeof(Move));
+			memcpy(bestMove, pos->val, sizeof(Move)); // need to copy the data because it is gonna be freed by lfree
 		}
 		pos = pos->next;
 	}
 	lfree(l); // TODO udělat tohle při iterování
 	return bestMove;
 }
+

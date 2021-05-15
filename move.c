@@ -30,3 +30,4 @@ Move* moveFromString(char* string) {
 	m->promo = 0;
 	return m;
 }
+

@@ -27,7 +27,6 @@ u8 bitScan(u64 bb, bool reverse) {
 bool lcontains(List* l, Move* m) {
 	ListNode* pos = l->first;
 	for (u32 i = 0; i < l->count; i++) {
-		printf("mov: %d -> %d\n", ((Move*)(pos->val))->src, ((Move*)(pos->val))->dst);
 		if (((Move*)(pos->val))->src   == m->src &&
 		    ((Move*)(pos->val))->dst   == m->dst &&
 		    ((Move*)(pos->val))->promo == m->promo) {
@@ -35,7 +34,6 @@ bool lcontains(List* l, Move* m) {
 		}
 		pos = pos->next;
 	}
-
 	return false;
 }
 
@@ -43,3 +41,4 @@ void readline(char* line) {
 	size_t size;
 	if (getline(&line, &size, stdin) == -1) printf("No line\n");
 }
+

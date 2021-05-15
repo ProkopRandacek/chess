@@ -1,5 +1,5 @@
 // vim:filetype=c
-#define  _GNU_SOURCE
+#define  _GNU_SOURCE // for readline
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -77,14 +77,12 @@ typedef struct List {
 
 // main.c
 int main(void);
-Move* aiMove(Board* b);
 
 // board.c
-void   loadFen      (Board* b, const char* fen);
-bool   canCastle    (Board* b, int pos);
-void   disableCastle(Board* b, int pos);
-u32    pieceOn      (Board* b, int pos, u32 color);
-Board* applyMove    (Board* b, Move* m);
+void loadFen   (Board* b, const char* fen);
+u32  pieceOn   (Board* b, int pos, u32 color);
+void applyMove (Board* b, Board* old, Move* m); // b is the new board
+void refreshOcc(Board* b);
 
 // movegen.c
 u64 genRayBB(u64 occ, u8 dir, u8 pos);
@@ -108,6 +106,7 @@ void readline(char* line);
 // print.c
 void printboard(Board* b, u64 hl);
 void bb2char(u64 bb, char board[8][8], char c);
+void bbprint(u64 bb);
 
 // move.c
 Move* moveFromString(char* string);
@@ -138,6 +137,7 @@ void  checkatend(void);
 List* linit  (unsigned int num, list_val_t val[num]);
 void  lfree  (List* l);
 void  lappend(List* l, list_val_t val);
-void  lpop(List* l);
+void  lpop   (List* l);
 
 // === end of function declarations ===
+

@@ -19,7 +19,5 @@
 	- [x] checkmate
 	- [ ] unsafe pieces
   - [x] minimax search
-    - [ ] fix leaks
-	- [ ] fix SIGSEGV
   - [ ] alfa beta pruning
   - [ ] moves sort

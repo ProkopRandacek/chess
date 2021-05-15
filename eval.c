@@ -33,3 +33,4 @@ int evalMoves(u32 moveCount) {
 	if (moveCount == 0) return checkmateScore;
 	return (int)moveCount * moveScore;
 }
+
