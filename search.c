@@ -9,16 +9,19 @@ int search(Board* s, int a, int b, int d) {
 	}
 	int score = -10000;
 	ListNode* pos = l->first;
-	while (1) {
+	for (;;) {
 		if (pos == NULL) break;
 		Board newB;
 		applyMove(&newB, s, (Move*)pos->val);
 		score = -search(&newB, a, b, d - 1);
 		if (score >= b) return b;
 		a = max(a, score);
+		ListNode* oldpos = pos;
 		pos = pos->next;
+		dfree(oldpos->val);
+		dfree(oldpos);
 	}
-	lfree(l); // TODO udělat tohle při iterování
+	dfree(l);
 	return a;
 }
 
@@ -29,7 +32,8 @@ Move* makeAIMove(Board* b, int d) {
 	genLegalMoves(b, l);
 	lpop(l);
 	ListNode* pos = l->first;
-	for (unsigned int i = 0; i < l->count; i++) {
+	for (;;) {
+		if (pos == NULL) break;
 		Board newB;
 		applyMove(&newB, b, (Move*)pos->val);
 		int score = -search(&newB, -10000, 10000, d - 1);
@@ -37,9 +41,12 @@ Move* makeAIMove(Board* b, int d) {
 			maxScore = score;
 			memcpy(bestMove, pos->val, sizeof(Move)); // need to copy the data because it is gonna be freed by lfree
 		}
+		ListNode* oldpos = pos;
 		pos = pos->next;
+		dfree(oldpos->val);
+		dfree(oldpos);
 	}
-	lfree(l); // TODO udělat tohle při iterování
+	dfree(l);
 	return bestMove;
 }
 

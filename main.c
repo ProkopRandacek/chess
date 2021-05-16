@@ -14,10 +14,10 @@ int main(void) {
 	Board board;
 	loadFen(&board, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR");
 	board.color = WHITE;
-	for (int i = 0; i < 7; i++) {
+	/*for (int i = 0; i < 7; i++) {
 		printf("moveGenTest(%d) = %d\n", i, moveGenTest(&board, i));
 	}
-	exit(0);
+	exit(0);*/
 	u64 hl = 0;
 
 	while (1) {
@@ -60,7 +60,7 @@ getInput:
 				dfree(move);
 				printf("calculating AI move\n");
 				printboard(&board, hl);
-				move = makeAIMove(&board, 5);
+				move = makeAIMove(&board, 3);
 				applyMove(&newBoard, &board, move);
 				hl = ones(move->src) | ones(move->dst);
 				board = newBoard;
