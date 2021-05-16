@@ -18,5 +18,5 @@
 	- [x] checkmate
 	- [ ] unsafe pieces
   - [x] minimax search
-  - [ ] alfa beta pruning
+  - [x] alfa beta pruning
   - [ ] moves sort

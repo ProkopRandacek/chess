@@ -39,3 +39,23 @@ void readline(char* line) {
 	if (getline(&line, &size, stdin) == -1) printf("No line\n");
 }
 
+int moveGenTest(Board* b, int d) {
+	if (d == 0) return 1;
+
+	List* l = linit(1, (void*[]){0});
+	genLegalMoves(b, l);
+	lpop(l);
+	int numPositions = 0;
+
+	ListNode* pos = l->first;
+	while (1) {
+		if (pos == NULL) break;
+		Board newB;
+		applyMove(&newB, b, (Move*)pos->val);
+
+		numPositions += moveGenTest(&newB, d - 1);
+
+		pos = pos->next;
+	}
+	return numPositions;
+}

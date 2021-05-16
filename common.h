@@ -102,6 +102,7 @@ u64  getMy(Board* b, int plr);
 u8   bitScan(u64 bb, bool reverse);
 int  max(int a, int b);
 void readline(char* line);
+int  moveGenTest(Board* b, int d);
 
 // print.c
 void printboard(Board* b, u64 hl);
@@ -120,7 +121,7 @@ int evalPieces(Board* b);
 int evalMoves(u32 moveCount);
 
 // search.c
-int minimax(Board* b, int d);
+int search(Board* s, int a, int b, int d);
 Move* makeAIMove(Board* b, int d);
 
 // debug.c
