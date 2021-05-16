@@ -22,12 +22,10 @@ Move* moveFromString(char* string) {
 	// space
 	int dstx =   (string[3] - 97);
 	int dsty = 8-(string[4] - 48);
-	// promo
 	Move* m = dmalloc(sizeof(Move));
 	m->src = (u8)(srcy * 8 + srcx);
 	m->dst = (u8)(dsty * 8 + dstx);
 	//printf("%s = %d, %d -> %d, %d (%d -> %d)\n", string, srcx, srcy, dstx, dsty, m->src, m->dst);
-	m->promo = 0;
 	return m;
 }
 

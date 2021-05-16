@@ -34,11 +34,6 @@ enum Color {
 	BLACK = 1
 };
 
-enum Promo {
-	PROMO_KNIGHT = 0,
-	PROMO_QUEEN  = 1
-};
-
 enum Piece {
 	PAWN   = 0b000,
 	KNIGHT = 0b001,
@@ -64,7 +59,6 @@ typedef struct Move {
 	// idk why TODO
 	u8 src : 6; // 0 - 63
 	u8 dst : 6; // 0 - 63
-	u8 promo : 1; // 0 - 1
 } Move;
 
 typedef struct ListNode ListNode;

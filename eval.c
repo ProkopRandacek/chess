@@ -8,7 +8,7 @@ static const int pieceScore[5] = {
 static const int checkmateScore = -10000;
 static const int centerScore = 1;
 static const int moveScore = 1;
-static const u64 center = 0;
+static const u64 center = 0x00003C3C3C3C0000;
 
 int eval(Board* b, u32 moveCount) {
 	return evalPieces(b) + evalCenter(b) + evalMoves(moveCount);

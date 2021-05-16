@@ -40,12 +40,15 @@ void clearPos(Board* b, int pos) {
 }
 
 void applyMove(Board* b, Board* old, Move* m) {
-	u32 p = m->promo;
 	memcpy(b->pieces, old->pieces, 2 * 6 * sizeof(u64));
 	b->color = !old->color;
 
-	if (m->promo == 0)
-		p = pieceOn(old, m->src, old->color);
+	u64 p = pieceOn(old, m->src, old->color);
+
+	if (p == PAWN) {
+		if (old->color == BLACK && m->dst >= 7*8) p = QUEEN;
+		if (old->color == WHITE && m->dst <  1*8) p = QUEEN;
+	}
 
 	clearPos(b, m->src);
 	clearPos(b, m->dst);

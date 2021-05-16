@@ -35,7 +35,6 @@ void bb2moves(u8 src, u64 bb, Board* b, List* l) {
 			Move* m = dmalloc(sizeof(Move));
 			m->src = src;
 			m->dst = i;
-			m->promo = 0;
 			if (!leavesInCheck(b, m)) // check legality right after move creation => quick quick
 				lappend(l, m);
 			else dfree(m);

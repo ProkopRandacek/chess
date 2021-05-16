@@ -4,12 +4,11 @@
   - [x] move input
   - [x] colors
   - [ ] unicode chess pieces
-  - [ ] pawn promotion user input
 - [ ] move gen
   - [x] regular moves
   - [x] check/mate logic
   - [ ] castling
-  - [ ] pawn promotion
+  - [x] pawn promotion (queen only)
   - [ ] en passant
 - [ ] AI
   - [x] evaluation

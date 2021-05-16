@@ -9,12 +9,12 @@ int minimax(Board* b, int d) {
 	}
 	int maxScore = checkmateScore;
 	ListNode* pos = l->first;
-	for (;;) {
+	while (1) {
+		if (pos == NULL) break;
 		Board newB;
 		applyMove(&newB, b, (Move*)pos->val);
 		int score = -minimax(&newB, d - 1);
 		maxScore = max(maxScore, score);
-		if (pos->next == 0) break;
 		pos = pos->next;
 	}
 	lfree(l); // TODO udělat tohle při iterování
