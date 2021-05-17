@@ -24,7 +24,7 @@
 
 #define list_val_t void*
 
-enum Color {
+enum Sides {
 	// I cant call those WHITE and BLACK since these names are already used by raylib :c
 	UPPER = 0, // white
 	LOWER = 1  // black

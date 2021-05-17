@@ -1,9 +1,7 @@
 # Chess
 
-- [ ] ui
-  - [x] move input
-  - [x] colors
-  - [ ] unicode chess pieces
+- [ ] gui
+  - [ ] move input
 - [ ] move gen
   - [x] regular moves
   - [x] check/mate logic
