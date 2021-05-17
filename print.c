@@ -1,3 +1,11 @@
+#include "print.h"
+
+#define BG_BBLK "\033[0;100"
+#define BG_BWHT "\033[0;107"
+#define FG_BLK  ";30m"
+#define FG_GRN  ";42;30m"
+#define RST     "\033[0m"
+
 static const char icons[] = { 'p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K' };
 
 void bbprint(u64 bb) {

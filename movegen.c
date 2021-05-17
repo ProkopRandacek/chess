@@ -1,3 +1,10 @@
+#include "movegen.h"
+
+#include "board.h"
+#include "debug.h"
+#include "list.h"
+#include "util.h"
+
 u64 getRayBB(u64 occ, u8 dir, u8 pos) {
 	u64 att = rayAttacks[dir][pos];
 	u64 blockers = att & occ;

@@ -1,3 +1,7 @@
+#include "board.h"
+
+#include "util.h"
+
 void loadFen(Board* b, const char* fen) {
 	memset(b->pieces, 0, 2 * 6 * sizeof(u64));
 	int x = 0;
@@ -10,7 +14,7 @@ void loadFen(Board* b, const char* fen) {
 			if (fen[i] >= '0' && fen[i] <= '9') {
 				x += (char)(fen[i] - 48);
 			} else {
-				u32 c = (fen[i] >= 'A' && fen[i] <= 'Z') ? WHITE : BLACK;
+				u32 c = (fen[i] >= 'A' && fen[i] <= 'Z') ? LOWER : UPPER;
 				b->pieces[c][char2piece(fen[i])] |= mask(x, y);
 				x++;
 			}
@@ -46,8 +50,8 @@ void applyMove(Board* b, Board* old, Move* m) {
 	u64 p = pieceOn(old, m->src, old->color);
 
 	if (p == PAWN) {
-		if (old->color == BLACK && m->dst >= 7*8) p = QUEEN;
-		if (old->color == WHITE && m->dst <  1*8) p = QUEEN;
+		if (old->color == UPPER && m->dst >= 7*8) p = QUEEN;
+		if (old->color == LOWER && m->dst <  1*8) p = QUEEN;
 	}
 
 	clearPos(b, m->src);

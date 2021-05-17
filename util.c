@@ -1,3 +1,9 @@
+#include "util.h"
+
+#include "list.h"
+#include "movegen.h"
+#include "board.h"
+
 int max(int a, int b) { return a > b ? a : b; }
 int min(int a, int b) { return a < b ? a : b; }
 
@@ -59,3 +65,24 @@ int moveGenTest(Board* b, int d) {
 	}
 	return numPositions;
 }
+
+#ifdef DEBUG
+unsigned int mallocs = 0;
+unsigned int frees = 0;
+size_t total = 0;
+
+void* dmalloc(size_t sz) {
+	void* mem = malloc(sz);
+	total += sz;
+	mallocs++;
+	return mem;
+}
+void dfree(void* mem) {
+	frees++;
+	free(mem);
+}
+void checkatend() {
+	printf("frees:   %d\nmallocs: %d\ntotal:   %ld bytes\n", frees, mallocs, total);
+}
+#endif
+

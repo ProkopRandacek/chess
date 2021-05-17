@@ -1,5 +1,20 @@
 // vim:filetype=c
+
+// piece values and stuff
+static const int pieceScore[5] = {
+	10, // pawn
+	30, // knight
+	30, // bishop
+	50, // rook
+	90  // queen
+};
+static const int checkmateScore = -10000;
+static const int centerScore = 1;
+static const int moveScore = 1;
+static const u64 center = 0x00003C3C3C3C0000;
 static const u64 pawnStart = 71776119061282560;
+
+// bitboards
 static const u64 rayAttacks[8][64] = {
 	{
 		0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80, 0x101, 0x202, 0x404, 0x808, 0x1010,

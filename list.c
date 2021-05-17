@@ -1,3 +1,7 @@
+#include "list.h"
+
+#include "util.h"
+
 List* linit(unsigned int num, list_val_t val[num]) {
 	if (num <= 0) {
 		printf("%s - list length must be greater than zero (is %d)\n", __func__, num);

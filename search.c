@@ -1,3 +1,12 @@
+#include "search.h"
+
+#include "board.h"
+#include "debug.h"
+#include "eval.h"
+#include "list.h"
+#include "movegen.h"
+#include "util.h"
+
 int search(Board* s, int a, int b, int d) {
 	List* l = linit(1, (void*[]){0});
 	genLegalMoves(s, l);
