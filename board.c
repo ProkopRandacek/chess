@@ -36,6 +36,14 @@ u32 pieceOn(Board* b, int pos, u32 color) {
 	exit(1);
 }
 
+int safePieceOn(Board* b, int pos) {
+	for (int c = 0; c < 2; c++)
+		for (u32 p = 0; p < 6; p++)
+			if (b->pieces[c][p] & ones(pos))
+				return c * 6 + p;
+	return -1;
+}
+
 void clearPos(Board* b, int pos) {
 	u64 mask = ~ones(pos);
 	for (int c = 0; c < 2; c++)

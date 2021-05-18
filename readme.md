@@ -1,7 +1,8 @@
 # Chess
 
 - [ ] gui
-  - [ ] move input
+  - [x] move input
+  - [ ] printing search stats
 - [ ] move gen
   - [x] regular moves
   - [x] check/mate logic

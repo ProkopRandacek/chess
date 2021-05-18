@@ -33,6 +33,7 @@ u8 bitScan(u64 bb, bool reverse) {
 bool lcontains(List* l, Move* m) {
 	ListNode* pos = l->first;
 	for (u32 i = 0; i < l->count; i++) {
+		printf("move: %d -> %d\n", ((Move*)(pos->val))->src, ((Move*)(pos->val))->dst);
 		if (((Move*)(pos->val))->src == m->src && ((Move*)(pos->val))->dst == m->dst)
 			return true;
 		pos = pos->next;

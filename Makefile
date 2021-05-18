@@ -2,7 +2,7 @@ CC = gcc
 
 SOURCES = $(wildcard *.c)
 
-CC_WFLAGS = -Wall -Wextra -Wuninitialized -Waggregate-return -Wunreachable-code -Wfloat-equal -Wundef -Wshadow -Wpointer-arith -Wcast-align -Wstrict-prototypes -Wwrite-strings -Wcast-qual -Wswitch-default -Wswitch-enum -Wconversion -Wformat=2 -Winit-self -Wno-misleading-indentation -Wno-format-nonliteral
+CC_WFLAGS = -Wall -Wextra -Wuninitialized -Wunreachable-code -Wfloat-equal -Wundef -Wshadow -Wpointer-arith -Wcast-align -Wstrict-prototypes -Wwrite-strings -Wcast-qual -Wswitch-default -Wswitch-enum -Wconversion -Wformat=2 -Winit-self -Wno-misleading-indentation -Wno-format-nonliteral
 #CC_FFLAGS = -fshort-enums
 CC_FLAGS  = $(CC_WFLAGS) $(CC_FFLAGS) -std=c99 -march=native -Ofast -g
 

@@ -26,8 +26,8 @@
 
 enum Sides {
 	// I cant call those WHITE and BLACK since these names are already used by raylib :c
-	UPPER = 0, // white
-	LOWER = 1  // black
+	LOWER = 0, // white
+	UPPER = 1  // black
 };
 
 enum Piece {

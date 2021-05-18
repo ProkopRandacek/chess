@@ -42,6 +42,7 @@ void bb2moves(u8 src, u64 bb, Board* b, List* l) {
 			Move* m = dmalloc(sizeof(Move));
 			m->src = src;
 			m->dst = i;
+			printf("found move: %d -> %d\n", m->src, m->dst);
 			if (!leavesInCheck(b, m)) // check legality right after move creation => quick quick
 				lappend(l, m);
 			else dfree(m);
@@ -51,6 +52,8 @@ void bb2moves(u8 src, u64 bb, Board* b, List* l) {
 void genLegalMoves(Board* b, List* l) {
 	for (int p = 0; p < 6; p++) { // for all piece types
 		u64 pbb = b->pieces[b->color][p];
+		printf("pbb:\n");
+		bbprint(pbb);
 		for (u8 i = (u8)ctz(pbb); i < (64 - clz(pbb)); i++) // iterate over them
 			if (ones(i) & pbb) // skip empty tiles
 				bb2moves(i, genMovesBB[p](i, b), b, l); // append their moves to the list

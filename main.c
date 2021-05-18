@@ -1,27 +1,33 @@
 #include <raylib.h>
 #include "main.h"
+#include "list.h"
+#include "util.h"
+#include "movegen.h"
 
-#include "common.h"
 #include "board.h"
 
 enum sizes {
 	TILE_SIZE = 100,
-	BOARD_X_PADDING = 300,
+	BOARD_X_PADDING = 400,
 	BOARD_Y_PADDING = 100,
 	SCREEN_WIDTH  = TILE_SIZE * 8 + BOARD_X_PADDING * 2,
 	SCREEN_HEIGHT = TILE_SIZE * 8 + BOARD_Y_PADDING * 2,
 
 };
 
-const char* texNames[12] = { "assets/wp.png", "assets/wn.png", "assets/wb.png", "assets/wr.png", "assets/wq.png", "assets/wk.png", "assets/bp.png", "assets/bn.png", "assets/bb.png", "assets/br.png", "assets/bq.png", "assets/bk.png" };
-
-int guiBoard[64] = { };
+const char* texNames[12] = {
+	"assets/bp.png", "assets/bn.png", "assets/bb.png", "assets/br.png", "assets/bq.png", "assets/bk.png",
+	"assets/wp.png", "assets/wn.png", "assets/wb.png", "assets/wr.png", "assets/wq.png", "assets/wk.png"
+};
 Texture2D pieces[12];
+Font inconsolata;
+Board mainBoard;
 
 int main(void) {
-	Board board;
-	loadFen(&board, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR");
-	board.color = LOWER;
+	loadFen(&mainBoard, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR");
+	mainBoard.color = LOWER;
+
+	printboard(&mainBoard, 0);
 
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "chess");
 	SetTargetFPS(60);
@@ -31,6 +37,7 @@ int main(void) {
 		ImageResize(&img, TILE_SIZE, TILE_SIZE);
 		pieces[i] = LoadTextureFromImage(img);
 	}
+	inconsolata = LoadFontEx("assets/inconsolata.ttf", TILE_SIZE, 0, 250);
 
 	startRenderLoop();
 
@@ -40,25 +47,111 @@ int main(void) {
 	return 0;
 }
 
+void printboard(Board* b, u64 hl) {
+	char board[8][8] = {{' '}};
+	memset(&board, 0, 8 * 8 * sizeof(char));
+
+	for (int c = 0; c < 2; c++)
+		for (int p = 0; p < 6; p++)
+			bb2char(b->pieces[c][p], board, c * 6 + p + 1);
+
+	printf("  A B C D E F G H\n");
+	for (int y = 0; y < 8; y++) {
+		printf("%d", 8 - y);
+		for (int x = 0; x < 8; x++) {
+			printf(" %d", board[y][x]);
+		}
+		printf("%d\n", 8 - y);
+	}
+	printf("  A B C D E F G H\n");
+}
+
+void bb2char(u64 bb, char board[8][8], char c) {
+	for (int i = ctz(bb); i < (64 - clz(bb)); i++)
+		if (bb & ones(i))
+			board[i / 8][i % 8] = c;
+}
+
 void startRenderLoop(void) {
+	bool moving = false;
+	int movingStart = -1;
+	int movingStop  = -1;
+	int movingPiece = -1;
+	Vector2 mousePos = {0, 0};
+
 	while (!WindowShouldClose()) {
+		if (moving) {
+			mousePos = GetMousePosition();
+			if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) { // still moving
+				moving = true;
+			} else { // stopped moving
+				moving = false;
+				movingStop = (int)(mousePos.y - BOARD_Y_PADDING) / TILE_SIZE * 8 + (int)(mousePos.x - BOARD_X_PADDING) / TILE_SIZE;
+				Move move;
+				move.src = (u8)movingStart;
+				move.dst = (u8)movingStop;
+				printf("%d -> %d\n", move.src, move.dst);
+				printboard(&mainBoard, 0);
+				List* l = linit(1, (void*[]){0});
+				genLegalMoves(&mainBoard, l);
+				lpop(l);
+				printf("moves: %d\n", l->count);
+				if (!lcontains(l, &move)) {
+					printf("illegal move\n");
+					movingStart = -1;
+					movingStop  = -1;
+					movingPiece = -1;
+					continue;
+				}
+				lfree(l);
+				Board newBoard;
+				applyMove(&newBoard, &mainBoard, &move);
+				mainBoard = newBoard;
+			}
+		} else {
+			if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) { // started moving
+				moving = true;
+				mousePos = GetMousePosition();
+				if (mousePos.x > BOARD_X_PADDING && mousePos.y > BOARD_Y_PADDING && mousePos.x < BOARD_X_PADDING + TILE_SIZE * 8 && mousePos.y < BOARD_Y_PADDING + TILE_SIZE * 8) {
+					movingStart = (int)(mousePos.y - BOARD_Y_PADDING) / TILE_SIZE * 8 + (int)(mousePos.x - BOARD_X_PADDING) / TILE_SIZE;
+					movingPiece = safePieceOn(&mainBoard, movingStart);
+				}
+			} else {
+				moving = false;
+			}
+		}
 		BeginDrawing();
 
-		ClearBackground(RAYWHITE);
+		ClearBackground(GRAY);
 
 		// chess grid
-		DrawRectangle(BOARD_X_PADDING, BOARD_Y_PADDING, TILE_SIZE * 8, TILE_SIZE * 8, GREEN);
+		DrawRectangle(BOARD_X_PADDING, BOARD_Y_PADDING, TILE_SIZE * 8, TILE_SIZE * 8, DARKGRAY);
 		for (int y = 0; y < 8 * TILE_SIZE; y += TILE_SIZE)
 			for (int x = y % (TILE_SIZE * 2); x < 8 * TILE_SIZE; x += TILE_SIZE * 2)
-				DrawRectangle(BOARD_X_PADDING + x, BOARD_Y_PADDING + y, TILE_SIZE, TILE_SIZE, BLUE);
+				DrawRectangle(BOARD_X_PADDING + x, BOARD_Y_PADDING + y, TILE_SIZE, TILE_SIZE, LIGHTGRAY);
 
 		// pieces
-		for (int i; i < 64; i++) {
-			DrawTexture(pieces[1], 0, 0, WHITE);
-		}
+		char board[8][8];
+		memset(&board, 0, sizeof(char)*64);
+		for (int c = 0; c < 2; c++)
+			for (int p = 0; p < 6; p++)
+				bb2char(mainBoard.pieces[c][p], board, c * 6 + p + 1);
+		for (int y = 0; y < 8; y++)
+			for (int x = 0; x < 8; x++)
+				if (board[y][x] != 0 && movingStart != y * 8 + x)
+					DrawTexture(pieces[board[y][x] - 1], x * TILE_SIZE + BOARD_X_PADDING, y * TILE_SIZE + BOARD_Y_PADDING, WHITE);
+
+		// moving piece
+		if (moving) DrawTexture(pieces[movingPiece], mousePos.x - TILE_SIZE / 2, mousePos.y - TILE_SIZE / 2, WHITE);
+
+		// texts
+		DrawTextEx(inconsolata, "Mate in 6 ply", (Vector2) { 10, BOARD_Y_PADDING + TILE_SIZE * 3}, TILE_SIZE / 2, 0.5f, WHITE);
+		DrawTextEx(inconsolata, "Move: e2e4"   , (Vector2) { 10, BOARD_Y_PADDING + TILE_SIZE * 4}, TILE_SIZE / 2, 0.5f, WHITE);
 
 		EndDrawing();
 	}
+	for (int i = 0; i < 12; i++)
+		UnloadTexture(pieces[i]);
 	CloseWindow();
 }
 
