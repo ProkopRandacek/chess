@@ -58,7 +58,8 @@ void startRenderLoop(void) {
 	int movingStop  = -1;
 	int movingPiece = -1;
 	Vector2 mousePos = {0, 0};
-	u64 hl = 0;
+	u64 hlChange = 0;
+	u64 hlPossible = 0;
 	List* l;
 
 	while (!WindowShouldClose()) {
@@ -74,6 +75,7 @@ void startRenderLoop(void) {
 				move.dst = (u8)movingStop;
 				printf("%d -> %d\n", move.src, move.dst);
 				printf("moves: %d\n", l->count);
+				hlPossible = 0;
 				if (!lcontains(l, &move)) {
 					printf("illegal move\n");
 					movingStart = -1;
@@ -85,7 +87,7 @@ void startRenderLoop(void) {
 				Board newBoard;
 				applyMove(&newBoard, &board, &move);
 				board = newBoard;
-				hl = 0;
+				hlChange = ones(move.src) | ones(move.dst);
 			}
 		} else {
 			if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) { // started moving
@@ -99,8 +101,7 @@ void startRenderLoop(void) {
 				l = linit(1, (void*[]){0}); // create legal moves
 				genLegalMoves(&board, l);
 				lpop(l);
-				hl = moveEnds(l, movingStart);
-				bbprint(hl);
+				hlPossible = moveEnds(l, movingStart);
 			} else {
 				moving = false;
 			}
@@ -115,9 +116,12 @@ void startRenderLoop(void) {
 			for (int x = y % (TILE_SIZE * 2); x < 8 * TILE_SIZE; x += TILE_SIZE * 2)
 				DrawRectangle(BOARD_X_PADDING + x, BOARD_Y_PADDING + y, TILE_SIZE, TILE_SIZE, LIGHTGRAY);
 		for (int y = 0; y < 8; y++)
-			for (int x = 0; x < 8; x++)
-				if (hl & mask(x, y))
+			for (int x = 0; x < 8; x++) {
+				if (hlPossible & mask(x, y))
 					DrawRectangle(BOARD_X_PADDING + x * TILE_SIZE, BOARD_Y_PADDING + y * TILE_SIZE, TILE_SIZE, TILE_SIZE, GREEN);
+				else if (hlChange & mask(x, y))
+					DrawRectangle(BOARD_X_PADDING + x * TILE_SIZE, BOARD_Y_PADDING + y * TILE_SIZE, TILE_SIZE, TILE_SIZE, BLUE);
+			}
 
 		// pieces
 		char charBoard[8][8];
