@@ -3,6 +3,7 @@
 - [ ] gui
   - [x] move input
   - [ ] printing search stats
+  - [ ] highlighting 
 - [ ] move gen
   - [x] regular moves
   - [x] check/mate logic

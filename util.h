@@ -10,6 +10,7 @@ u8 bitScan(u64 bb, bool reverse);
 bool lcontains(List* l, Move* m);
 void readline(char* line);
 int moveGenTest(Board* b, int d);
+u64 moveEnds(List* l, int i);
 
 #ifdef DEBUG
 void* dmalloc(size_t sz);

@@ -33,7 +33,7 @@ u8 bitScan(u64 bb, bool reverse) {
 bool lcontains(List* l, Move* m) {
 	ListNode* pos = l->first;
 	for (u32 i = 0; i < l->count; i++) {
-		printf("move: %d -> %d\n", ((Move*)(pos->val))->src, ((Move*)(pos->val))->dst);
+		//printf("move: %d -> %d\n", ((Move*)(pos->val))->src, ((Move*)(pos->val))->dst);
 		if (((Move*)(pos->val))->src == m->src && ((Move*)(pos->val))->dst == m->dst)
 			return true;
 		pos = pos->next;
@@ -65,6 +65,20 @@ int moveGenTest(Board* b, int d) {
 		pos = pos->next;
 	}
 	return numPositions;
+}
+
+u64 moveEnds(List* l, int i) {
+	u64 mask = 0;
+	ListNode* pos = l->first;
+	while (1) {
+		if (pos == NULL) break;
+
+		if (((Move*)(pos->val))->src == i)
+			mask |= ones(((Move*)(pos->val))->dst);
+
+		pos = pos->next;
+	}
+	return mask;
 }
 
 #ifdef DEBUG

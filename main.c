@@ -3,6 +3,7 @@
 #include "list.h"
 #include "util.h"
 #include "movegen.h"
+#include "print.h"
 
 #include "board.h"
 
@@ -21,14 +22,8 @@ const char* texNames[12] = {
 };
 Texture2D pieces[12];
 Font inconsolata;
-Board mainBoard;
 
 int main(void) {
-	loadFen(&mainBoard, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR");
-	mainBoard.color = LOWER;
-
-	printboard(&mainBoard, 0);
-
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "chess");
 	SetTargetFPS(60);
 
@@ -47,25 +42,6 @@ int main(void) {
 	return 0;
 }
 
-void printboard(Board* b, u64 hl) {
-	char board[8][8] = {{' '}};
-	memset(&board, 0, 8 * 8 * sizeof(char));
-
-	for (int c = 0; c < 2; c++)
-		for (int p = 0; p < 6; p++)
-			bb2char(b->pieces[c][p], board, c * 6 + p + 1);
-
-	printf("  A B C D E F G H\n");
-	for (int y = 0; y < 8; y++) {
-		printf("%d", 8 - y);
-		for (int x = 0; x < 8; x++) {
-			printf(" %d", board[y][x]);
-		}
-		printf("%d\n", 8 - y);
-	}
-	printf("  A B C D E F G H\n");
-}
-
 void bb2char(u64 bb, char board[8][8], char c) {
 	for (int i = ctz(bb); i < (64 - clz(bb)); i++)
 		if (bb & ones(i))
@@ -73,17 +49,23 @@ void bb2char(u64 bb, char board[8][8], char c) {
 }
 
 void startRenderLoop(void) {
+	Board board;
+	loadFen(&board, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR");
+	board.color = LOWER;
+
 	bool moving = false;
 	int movingStart = -1;
 	int movingStop  = -1;
 	int movingPiece = -1;
 	Vector2 mousePos = {0, 0};
+	u64 hl = 0;
+	List* l;
 
 	while (!WindowShouldClose()) {
 		if (moving) {
 			mousePos = GetMousePosition();
 			if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) { // still moving
-				moving = true;
+
 			} else { // stopped moving
 				moving = false;
 				movingStop = (int)(mousePos.y - BOARD_Y_PADDING) / TILE_SIZE * 8 + (int)(mousePos.x - BOARD_X_PADDING) / TILE_SIZE;
@@ -91,10 +73,6 @@ void startRenderLoop(void) {
 				move.src = (u8)movingStart;
 				move.dst = (u8)movingStop;
 				printf("%d -> %d\n", move.src, move.dst);
-				printboard(&mainBoard, 0);
-				List* l = linit(1, (void*[]){0});
-				genLegalMoves(&mainBoard, l);
-				lpop(l);
 				printf("moves: %d\n", l->count);
 				if (!lcontains(l, &move)) {
 					printf("illegal move\n");
@@ -105,8 +83,9 @@ void startRenderLoop(void) {
 				}
 				lfree(l);
 				Board newBoard;
-				applyMove(&newBoard, &mainBoard, &move);
-				mainBoard = newBoard;
+				applyMove(&newBoard, &board, &move);
+				board = newBoard;
+				hl = 0;
 			}
 		} else {
 			if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) { // started moving
@@ -114,8 +93,14 @@ void startRenderLoop(void) {
 				mousePos = GetMousePosition();
 				if (mousePos.x > BOARD_X_PADDING && mousePos.y > BOARD_Y_PADDING && mousePos.x < BOARD_X_PADDING + TILE_SIZE * 8 && mousePos.y < BOARD_Y_PADDING + TILE_SIZE * 8) {
 					movingStart = (int)(mousePos.y - BOARD_Y_PADDING) / TILE_SIZE * 8 + (int)(mousePos.x - BOARD_X_PADDING) / TILE_SIZE;
-					movingPiece = safePieceOn(&mainBoard, movingStart);
+					movingPiece = safePieceOn(&board, movingStart);
 				}
+
+				l = linit(1, (void*[]){0}); // create legal moves
+				genLegalMoves(&board, l);
+				lpop(l);
+				hl = moveEnds(l, movingStart);
+				bbprint(hl);
 			} else {
 				moving = false;
 			}
@@ -129,17 +114,21 @@ void startRenderLoop(void) {
 		for (int y = 0; y < 8 * TILE_SIZE; y += TILE_SIZE)
 			for (int x = y % (TILE_SIZE * 2); x < 8 * TILE_SIZE; x += TILE_SIZE * 2)
 				DrawRectangle(BOARD_X_PADDING + x, BOARD_Y_PADDING + y, TILE_SIZE, TILE_SIZE, LIGHTGRAY);
-
-		// pieces
-		char board[8][8];
-		memset(&board, 0, sizeof(char)*64);
-		for (int c = 0; c < 2; c++)
-			for (int p = 0; p < 6; p++)
-				bb2char(mainBoard.pieces[c][p], board, c * 6 + p + 1);
 		for (int y = 0; y < 8; y++)
 			for (int x = 0; x < 8; x++)
-				if (board[y][x] != 0 && movingStart != y * 8 + x)
-					DrawTexture(pieces[board[y][x] - 1], x * TILE_SIZE + BOARD_X_PADDING, y * TILE_SIZE + BOARD_Y_PADDING, WHITE);
+				if (hl & mask(x, y))
+					DrawRectangle(BOARD_X_PADDING + x * TILE_SIZE, BOARD_Y_PADDING + y * TILE_SIZE, TILE_SIZE, TILE_SIZE, GREEN);
+
+		// pieces
+		char charBoard[8][8];
+		memset(&charBoard, 0, sizeof(char)*64);
+		for (int c = 0; c < 2; c++)
+			for (int p = 0; p < 6; p++)
+				bb2char(board.pieces[c][p], charBoard, c * 6 + p + 1);
+		for (int y = 0; y < 8; y++)
+			for (int x = 0; x < 8; x++)
+				if (charBoard[y][x] != 0 && movingStart != y * 8 + x)
+					DrawTexture(pieces[charBoard[y][x] - 1], x * TILE_SIZE + BOARD_X_PADDING, y * TILE_SIZE + BOARD_Y_PADDING, WHITE);
 
 		// moving piece
 		if (moving) DrawTexture(pieces[movingPiece], mousePos.x - TILE_SIZE / 2, mousePos.y - TILE_SIZE / 2, WHITE);
