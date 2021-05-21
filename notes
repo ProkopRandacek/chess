@@ -1,1 +1,0 @@
-c; make && valgrind --track-origins=yes --leak-check=full ./chess

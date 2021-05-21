@@ -1,9 +1,11 @@
 # Chess
 
-- [ ] ui
+![](./demo.png)
+
+- [ ] gui
   - [x] move input
-  - [x] colors
-  - [ ] unicode chess pieces
+  - [ ] printing search stats
+  - [x] highlighting 
 - [ ] move gen
   - [x] regular moves
   - [x] check/mate logic
@@ -20,3 +22,5 @@
   - [x] minimax search
   - [x] alfa beta pruning
   - [ ] moves sort
+  - [ ] search on another thread
+  - [ ] multithreading

@@ -1,4 +1,4 @@
-static const char icons[] = { 'p', 'n', 'b', 'r', 'q', 'k', 'P', 'N', 'B', 'R', 'Q', 'K' };
+#include "print.h"
 
 void bbprint(u64 bb) {
 	u64 mask = 1;
@@ -12,32 +12,6 @@ void bbprint(u64 bb) {
 	}
 }
 
-void bb2char(u64 bb, char board[8][8], char c) {
-	for (int i = ctz(bb); i < (64 - clz(bb)); i++)
-		if (bb & ones(i))
-			board[i / 8][i % 8] = c;
+void printmove(Move* move) {
+	printf("%d -> %d (%d %d -> %d %d)\n", move->src, move->dst, move->src / 8, move->src % 8, move->dst / 8, move->dst % 8);
 }
-
-void printboard(Board* b, u64 hl) {
-	char board[8][8] = {{' '}};
-	memset(&board, ' ', 8 * 8 * sizeof(char));
-
-	for (int c = 0; c < 2; c++)
-		for (int p = 0; p < 6; p++)
-			bb2char(b->pieces[c][p], board, icons[c * 6 + p]);
-
-	printf("  A B C D E F G H\n");
-	for (int y = 0; y < 8; y++) {
-		printf("%d", 8 - y);
-		for (int x = 0; x < 8; x++) {
-			if ((x + y) % 2 != 0) printf(BG_BBLK);
-			else printf(BG_BWHT);
-			if (mask(x, y) & hl) printf(FG_GRN);
-			else printf(FG_BLK);
-			printf(" %c%s", board[y][x], RST);
-		}
-		printf("%d\n", 8 - y);
-	}
-	printf("  A B C D E F G H\n");
-}
-

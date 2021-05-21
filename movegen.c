@@ -1,3 +1,10 @@
+#include "movegen.h"
+
+#include "board.h"
+#include "debug.h"
+#include "list.h"
+#include "util.h"
+
 u64 getRayBB(u64 occ, u8 dir, u8 pos) {
 	u64 att = rayAttacks[dir][pos];
 	u64 blockers = att & occ;
@@ -27,17 +34,27 @@ u64 genPMovesBB(u8 sq, Board* b) {
 	}
 	return att;
 }
+
 static u64 (*genMovesBB[6]) (u8 sq, Board* b) = { genPMovesBB, genNMovesBB, genBMovesBB, genRMovesBB, genQMovesBB, genKMovesBB };
+
+bool leavesInCheck(Board* old, Move* m) {
+	Board b;
+	applyMove(&b, old, m);
+	b.color = !b.color; // switch color
+	u8 myKing = (u8)ctz(b.pieces[b.color][KING]); // ctz converts bitboard with popcount of 1 to square index
+	bool heclr = !b.color;
+	u64 hepiece = b.pieces[heclr][PAWN];
+	if (pawnAttacks[b.color][myKing] & hepiece) return true; // pawn check is special
+	for (int i = 1; i < 6; i++) if (genMovesBB[i](myKing, &b) & b.pieces[heclr][i]) return true;
+	return false;
+}
 
 void bb2moves(u8 src, u64 bb, Board* b, List* l) {
 	for (u8 i = (u8)ctz(bb); i < (64 - clz(bb)); i++)
 		if (ones(i) & bb) {
-			Move* m = dmalloc(sizeof(Move));
-			m->src = src;
-			m->dst = i;
-			if (!leavesInCheck(b, m)) // check legality right after move creation => quick quick
-				lappend(l, m);
-			else dfree(m);
+			Move m = (Move){src, i};
+			if (!leavesInCheck(b, &m)) // check legality right after move creation => quick quick
+				lappend(l, &m);
 		}
 }
 
@@ -48,20 +65,5 @@ void genLegalMoves(Board* b, List* l) {
 			if (ones(i) & pbb) // skip empty tiles
 				bb2moves(i, genMovesBB[p](i, b), b, l); // append their moves to the list
 	}
-}
-
-bool leavesInCheck(Board* old, Move* m) {
-	Board b;
-	applyMove(&b, old, m);
-	b.color = !b.color; // switch color
-	u8 myKing = (u8)ctz(b.pieces[b.color][KING]); // ctz converts bitboard with popcount of 1 to square index
-	bool heclr = !b.color;
-	u64 hepiece = b.pieces[heclr][PAWN];
-	if (pawnAttacks[b.color][myKing] & hepiece) return true;
-	for (int i = 1; i < 6; i++) {
-		hepiece = b.pieces[heclr][i];
-		if (genMovesBB[i](myKing, &b) & hepiece) return true;
-	}
-	return false;
 }
 
