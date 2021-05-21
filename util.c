@@ -4,6 +4,8 @@
 #include "movegen.h"
 #include "board.h"
 
+extern Move* emptyMoveList[]; // from main.c
+
 int max(int a, int b) { return a > b ? a : b; }
 int min(int a, int b) { return a < b ? a : b; }
 
@@ -25,60 +27,38 @@ u64 getMy(Board* b, int plr) {
 	return my;
 }
 
+// https://www.chessprogramming.org/BitScan#Generalized_Bitscan
 u8 bitScan(u64 bb, bool reverse) {
-	if (reverse) return (u8)(63 - clz(bb));
-	return (u8)ctz(bb);
+	u64 rMask = -(u64)reverse;
+	bb &= -bb | rMask;
+	return (u8)(63 - clz(bb));
 }
 
 bool lcontains(List* l, Move* m) {
 	ListNode* pos = l->first;
 	for (u32 i = 0; i < l->count; i++) {
-		//printf("move: %d -> %d\n", ((Move*)(pos->val))->src, ((Move*)(pos->val))->dst);
-		if (((Move*)(pos->val))->src == m->src && ((Move*)(pos->val))->dst == m->dst)
+		//printf("move: %d -> %d\n", pos->m.src, pos->m.dst);
+		if (pos->m.src == m->src && pos->m.dst == m->dst)
 			return true;
 		pos = pos->next;
 	}
 	return false;
 }
 
-void readline(char* line) {
-	size_t size;
-	if (getline(&line, &size, stdin) == -1) printf("No line\n");
-}
-
-int moveGenTest(Board* b, int d) {
-	if (d == 0) return 1;
-
-	List* l = linit(1, (void*[]){0});
-	genLegalMoves(b, l);
-	lpop(l);
-	int numPositions = 0;
-
-	ListNode* pos = l->first;
-	while (1) {
-		if (pos == NULL) break;
-		Board newB;
-		applyMove(&newB, b, (Move*)pos->val);
-
-		numPositions += moveGenTest(&newB, d - 1);
-
-		pos = pos->next;
-	}
-	return numPositions;
-}
-
 u64 moveEnds(List* l, int i) {
 	u64 mask = 0;
 	ListNode* pos = l->first;
-	while (1) {
-		if (pos == NULL) break;
-
-		if (((Move*)(pos->val))->src == i)
-			mask |= ones(((Move*)(pos->val))->dst);
-
+	while (pos != NULL) {
+		if (pos->m.src == i) mask |= ones(pos->m.dst);
 		pos = pos->next;
 	}
 	return mask;
+}
+
+void bb2char(u64 bb, char board[8][8], char c) {
+	for (int i = ctz(bb); i < (64 - clz(bb)); i++)
+		if (bb & ones(i))
+			board[i / 8][i % 8] = c;
 }
 
 #ifdef DEBUG

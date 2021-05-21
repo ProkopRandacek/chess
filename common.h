@@ -22,8 +22,6 @@
 #define ctz(x)      __builtin_ctzl(x)
 #define popcount(x) __builtin_popcountl(x)
 
-#define list_val_t void*
-
 enum Sides {
 	// I cant call those WHITE and BLACK since these names are already used by raylib :c
 	LOWER = 0, // white
@@ -44,17 +42,17 @@ enum Piece {
 typedef struct Board {
 	u64 pieces[2][6];
 	u64 occ[2];
-	u32 color : 1;
+	u32 color;
 } Board;
 
 typedef struct Move {
-	u8 src : 6; // 0 - 63
-	u8 dst : 6; // 0 - 63
+	u8 src;
+	u8 dst;
 } Move;
 
 typedef struct ListNode ListNode;
 typedef struct ListNode {
-	list_val_t val;
+	Move m;
 	ListNode* next;
 } ListNode;
 

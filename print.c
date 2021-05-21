@@ -12,4 +12,6 @@ void bbprint(u64 bb) {
 	}
 }
 
-
+void printmove(Move* move) {
+	printf("%d -> %d (%d %d -> %d %d)\n", move->src, move->dst, move->src / 8, move->src % 8, move->dst / 8, move->dst % 8);
+}

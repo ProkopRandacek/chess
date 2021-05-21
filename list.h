@@ -1,6 +1,6 @@
 // vim:filetype=c
 #include "common.h"
-List* linit(unsigned int num, list_val_t val[num]);
+List* linit(unsigned int num, Move* val[num]);
 void lfree(List* l);
-void lappend(List* l, list_val_t val);
+void lappend(List* l, Move* val);
 void lpop(List* l);

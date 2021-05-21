@@ -7,8 +7,13 @@
 #include "movegen.h"
 #include "util.h"
 
+extern Move* emptyMoveList[]; // from main.c
+
+u64 searchCount = 0;
+
 int search(Board* s, int a, int b, int d) {
-	List* l = linit(1, (void*[]){0});
+	searchCount++;
+	List* l = linit(1, emptyMoveList);
 	genLegalMoves(s, l);
 	lpop(l);
 	if (d == 0 || l->count == 0) {
@@ -16,43 +21,45 @@ int search(Board* s, int a, int b, int d) {
 		lfree(l);
 		return eval(s, count);
 	}
-	int score = -10000;
+
+	int score = checkmateScore;
 	ListNode* pos = l->first;
-	for (;;) {
-		if (pos == NULL) break;
-		Board newB;
-		applyMove(&newB, s, (Move*)pos->val);
-		score = -search(&newB, a, b, d - 1);
+	while (pos != NULL) {
+		{
+			Board newB;
+			applyMove(&newB, s, &pos->m);
+			score = -search(&newB, a, b, d - 1);
+		}
 		if (score >= b) return b;
 		a = max(a, score);
 		ListNode* oldpos = pos;
 		pos = pos->next;
-		dfree(oldpos->val);
 		dfree(oldpos);
 	}
 	dfree(l);
 	return a;
 }
 
-Move* makeAIMove(Board* b, int d) {
-	int maxScore = checkmateScore;
-	Move* bestMove = dmalloc(sizeof(Move));
-	List* l = linit(1, (void*[]){0});
+Move* makeAIMove(Move* bestMove, Board* b, int d) {
+	List* l = linit(1, emptyMoveList);
 	genLegalMoves(b, l);
 	lpop(l);
+
+	int maxScore = checkmateScore;
+	int score;
 	ListNode* pos = l->first;
-	for (;;) {
-		if (pos == NULL) break;
-		Board newB;
-		applyMove(&newB, b, (Move*)pos->val);
-		int score = -search(&newB, -10000, 10000, d - 1);
+	while (pos != NULL) {
+		{
+			Board newB;
+			applyMove(&newB, b, &pos->m);
+			score = -search(&newB, -10000, 10000, d - 1);
+		}
 		if (score > maxScore) {
 			maxScore = score;
-			memcpy(bestMove, pos->val, sizeof(Move)); // need to copy the data because it is gonna be freed by lfree
+			memcpy(bestMove, &pos->m, sizeof(Move)); // need to copy the data because it is gonna be freed
 		}
 		ListNode* oldpos = pos;
 		pos = pos->next;
-		dfree(oldpos->val);
 		dfree(oldpos);
 	}
 	dfree(l);
