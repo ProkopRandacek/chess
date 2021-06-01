@@ -8,6 +8,8 @@
 
 #include "board.h"
 
+//extern int maxTaken, takes, returns, totalMoved;
+
 Move  emptyMove = (Move){0, 0};
 Move* emptyMoveList[1] = { &emptyMove };
 
@@ -24,6 +26,8 @@ Texture2D pieces[12];
 Font font;
 
 int main(void) {
+	linitpool();
+
 	printf("ListNode: %ld\n", sizeof(ListNode));
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "chess");
 	SetTargetFPS(60);
@@ -151,6 +155,11 @@ void startRenderLoop(void) {
 		EndDrawing();
 	}
 	for (int i = 0; i < 12; i++) UnloadTexture(pieces[i]);
+	lfreepool();
 	CloseWindow();
+	/*printf("maxtaken: %d\n", maxTaken);
+	printf("takes: %d\n", takes);
+	printf("returns: %d\n", returns);
+	printf("totalMoved: %d\n", totalMoved);*/
 }
 

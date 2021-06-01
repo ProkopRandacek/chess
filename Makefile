@@ -4,7 +4,7 @@ SOURCES = $(wildcard *.c)
 
 CC_WFLAGS = -Wall -Wextra -Wuninitialized -Wunreachable-code -Wfloat-equal -Wundef -Wshadow -Wpointer-arith -Wcast-align -Wstrict-prototypes -Wwrite-strings -Wcast-qual -Wswitch-default -Wswitch-enum -Wformat=2 -Winit-self -Wno-misleading-indentation -Wno-format-nonliteral -Wconversion
 #CC_FFLAGS = -fshort-enums
-CC_FLAGS  = $(CC_WFLAGS) $(CC_FFLAGS) -std=c99 -march=native -Ofast -g -pg
+CC_FLAGS  = $(CC_WFLAGS) $(CC_FFLAGS) -std=c11 -march=native -Ofast -g -pg
 
 # shared raylib lives in /usr/local/include
 CC_RAYLIB = -I/usr/share/include -D_DEFAULT_SOURCE -lraylib -lGL -lm -lpthread -ldl -lrt -lX11

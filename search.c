@@ -31,7 +31,7 @@ int search(Board* s, int a, int b, int d) {
 		a = max(a, score);
 		ListNode* oldpos = pos;
 		pos = pos->next;
-		dfree(oldpos);
+		lreturnnode(oldpos);
 	}
 	dfree(l);
 	return a;
@@ -57,7 +57,7 @@ Move* makeAIMove(Move* bestMove, Board* b, int d) {
 		}
 		ListNode* oldpos = pos;
 		pos = pos->next;
-		dfree(oldpos);
+		lreturnnode(oldpos);
 	}
 	dfree(l);
 	return bestMove;
