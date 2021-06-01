@@ -9,10 +9,7 @@
 
 extern Move* emptyMoveList[]; // from main.c
 
-u64 searchCount = 0;
-
 int search(Board* s, int a, int b, int d) {
-	searchCount++;
 	List* l = linit(1, emptyMoveList);
 	genLegalMoves(s, l);
 	lpop(l);

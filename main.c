@@ -11,8 +11,6 @@
 Move  emptyMove = (Move){0, 0};
 Move* emptyMoveList[1] = { &emptyMove };
 
-extern u64 searchCount;
-
 enum sizes {
 	TILE_SIZE = 100,
 	BOARD_X_PADDING = 400,
@@ -26,6 +24,7 @@ Texture2D pieces[12];
 Font font;
 
 int main(void) {
+	printf("ListNode: %ld\n", sizeof(ListNode));
 	InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "chess");
 	SetTargetFPS(60);
 
@@ -153,6 +152,5 @@ void startRenderLoop(void) {
 	}
 	for (int i = 0; i < 12; i++) UnloadTexture(pieces[i]);
 	CloseWindow();
-	printf("searchcount: %ld\n", searchCount);
 }
 

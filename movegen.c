@@ -52,17 +52,20 @@ bool leavesInCheck(Board* old, Move* m) {
 void bb2moves(u8 src, u64 bb, Board* b, List* l) {
 	for (u8 i = (u8)ctz(bb); i < (64 - clz(bb)); i++)
 		if (ones(i) & bb) {
-			Move m = (Move){src, i};
-			if (!leavesInCheck(b, &m)) // check legality right after move creation => quick quick
-				lappend(l, &m);
+			lappend(l, &(Move){src, i});
 		}
 }
 
 void genLegalMoves(Board* b, List* l) {
 	for (int p = 0; p < 6; p++) { // for all piece types
 		u64 pbb = b->pieces[b->color][p];
-		for (u8 i = (u8)ctz(pbb); i < (64 - clz(pbb)); i++) // iterate over them
-			if (ones(i) & pbb) // skip empty tiles
+
+		int step = 1;
+		if (popcount(pbb) == 2) // skip empty squares between 2 pieces
+			step = (64 - clz(pbb)) - ctz(pbb) - 1;
+
+		for (u8 i = (u8)ctz(pbb); i < (64 - clz(pbb)); i += step) // iterate over them
+			if (ones(i) & pbb) // skip empty squares
 				bb2moves(i, genMovesBB[p](i, b), b, l); // append their moves to the list
 	}
 }
