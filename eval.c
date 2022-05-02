@@ -1,26 +1,28 @@
 #include "eval.h"
 
-int eval(Board* b, u32 moveCount) {
+#include "table.h"
+
+int eval(struct board* b, int moveCount) {
 	return evalPieces(b) + evalCenter(b) + evalMoves(moveCount);
 }
 
-int evalCenter(Board* b) {
-	return centerScore * popcount(b->occ[b->color] & center);
+int evalCenter(struct board* b) {
+	return center_score * popcount(b->occ[b->color_to_move] & center);
 }
 
-int pieceDiff(Board* b, int piece) {
-	return popcount(b->pieces[b->color][piece]) - popcount(b->pieces[!b->color][piece]);
+int pieceDiff(struct board* b, int piece) {
+	return popcount(b->pieces[b->color_to_move][piece]) - popcount(b->pieces[!b->color_to_move][piece]);
 }
 
-int evalPieces(Board* b) {
+int evalPieces(struct board* b) {
 	int score = 0;
 	for (int p = 0; p < 5; p++)
-		score += pieceScore[p] * pieceDiff(b, p);
+		score += piece_score[p] * pieceDiff(b, p);
 	return score;
 }
 
-int evalMoves(u32 moveCount) {
-	if (moveCount == 0) return checkmateScore;
-	return (int)moveCount * moveScore;
+int evalMoves(int moveCount) {
+	if (moveCount == 0) return checkmate_score;
+	return (int)moveCount * move_score;
 }
 

@@ -1,0 +1,25 @@
+CC = cc -fdiagnostics-color=always
+LD = cc -fdiagnostics-color=always
+
+CFLAGS  = -std=gnu17 -Wall -Wextra
+LDFLAGS = -Wl,--gc-sections,-rpath=/usr/local/lib
+
+export PKG_CONFIG_PATH
+
+ifeq (@(DEBUG),y)
+	CFLAGS += -O0 -g -DWH_DEBUG
+	CFLAGS += -fsanitize=address -fsanitize=undefined -fstack-protector-strong -fcf-protection=full
+	CFLAGS += -fsanitize=integer-divide-by-zero -fsanitize=vla-bound -fsanitize=null
+	CFLAGS += -fsanitize=bounds -fsanitize=float-divide-by-zero -fsanitize=bool -fsanitize=enum
+	LDFLAGS += -fsanitize=address -fsanitize=undefined
+else
+	CFLAGS += -O3 -flto
+	LDFLAGS += -O3 -flto
+endif
+
+CFLAGS  += `pkgconf --cflags libucw raylib`
+LDFLAGS += `pkgconf --libs libucw raylib`
+
+: foreach *.c |> PKG_CONFIG_PATH="/usr/local/lib/pkgconfig" $(CC) $(CFLAGS) -c %f -o %o |> %B.o
+:         *.o |> PKG_CONFIG_PATH="/usr/local/lib/pkgconfig" $(LD) %f -o %o $(LDFLAGS) |> chess
+

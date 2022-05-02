@@ -1,68 +1,92 @@
 #include "board.h"
 
-#include "util.h"
+#include <string.h>
+#include <stdlib.h>
 
-void loadFen(Board* b, const char* fen) {
-	memset(b->pieces, 0, 2 * 6 * sizeof(u64));
-	int x = 0, y = 0;
-	for (int i = 0; i < (int)strlen(fen); i++) { // TODO strlen bad in this case
-		if (fen[i] == '/') {
-			y++;
-			x = 0;
+enum piece piece_on(struct board* b, int pos, int color) {
+	for (int i = 0; i < 6; i++)
+		if (b->pieces[color][i] & one(pos))
+			return (enum piece)i;
+	assert(false);
+}
+
+void make_move(struct board* b, struct move* m) {
+	enum piece p = m->moving_piece; // the piece that we should place
+
+	b->pieces[b->color_to_move][p] &= ~one(m->src); // clear the pos that we are moving the piece from
+
+	b->occ[b->color_to_move] &= ~one(m->src); // remove the source from occ
+	b->occ[b->color_to_move] |= one(m->dst); // add the destination to occ
+
+	if (m->flags & mfPROMOTE) {
+		p = pQUEEN;
+	}
+	if (m->flags & mfCASTLE) {
+		bb add, remove;
+		switch (m->dst) {
+			case 62: add = 61; remove = 63; break;
+			case 58: add = 59; remove = 56; break;
+			case 6:  add = 5;  remove = 7;  break;
+			case 2:  add = 3;  remove = 0;  break;
+			default: assert(false);
+		}
+		b->pieces[b->color_to_move][pROOK] |= one(add);
+		b->pieces[b->color_to_move][pROOK] &= ~one(remove);
+		b->occ[b->color_to_move] |= one(add);
+		b->occ[b->color_to_move] &= ~one(remove);
+		if (b->color_to_move != sBLACK) {
+			b->caste_black_left = false;
+			b->caste_black_right = false;
 		} else {
-			if (fen[i] >= '0' && fen[i] <= '9') {
-				x += (char)(fen[i] - 48);
-			} else {
-				u32 c = (fen[i] >= 'A' && fen[i] <= 'Z') ? LOWER : UPPER;
-				b->pieces[c][char2piece(fen[i])] |= mask(x, y);
-				x++;
-			}
+			b->caste_white_left = false;
+			b->caste_white_right = false;
 		}
 	}
-	// generate occ masks for both sides
-	b->occ[0] = b->pieces[0][0] | b->pieces[0][1] | b->pieces[0][2] | b->pieces[0][3] | b->pieces[0][4] | b->pieces[0][5];
-	b->occ[1] = b->pieces[1][0] | b->pieces[1][1] | b->pieces[1][2] | b->pieces[1][3] | b->pieces[1][4] | b->pieces[1][5];
-}
 
-u32 pieceOn(Board* b, int pos, u32 color) {
-	for (u32 i = 0; i < 6; i++)
-		if (b->pieces[color][i] & ones(pos)) return i;
-	printf("%s - could not find piece on x%d y%d (%d).\n", __func__, pos % 8, pos / 8, pos);
-	exit(1);
-}
+	b->pieces[b->color_to_move][p] |= one(m->dst); // paste new piece on that position
 
-int safePieceOn(Board* b, u8 pos) {
-	for (u8 c = 0; c < 2; c++)
-		for (u8 p = 0; p < 6; p++)
-			if (b->pieces[c][p] & ones(pos)) return c * 6 + p;
-	return -1;
-}
-
-void clearPos(Board* b, int pos) {
-	u64 mask = ~ones(pos);
-	for (int c = 0; c < 2; c++)
-		for (int p = 0; p < 6; p++)
-			b->pieces[c][p] &= mask;
-}
-
-void applyMove(Board* b, Board* old, Move* m) {
-	memcpy(b, old, sizeof(Board));
-	b->color = !old->color;
-
-	u64 p = pieceOn(old, m->src, old->color);
-	b->pieces[old->color][p] &= ~ones(m->src); // clear the pos that we are moving the piece from
-
-	b->occ[old->color] &= ~ones(m->src); // clear the occ mask
-	b->occ[  b->color] |=  ones(m->dst); // update occ mask
-
-	if (p == PAWN) { // pawn promotion at the moment only to queen
-		if (old->color == UPPER) {
-			if (m->dst >= 7*8) p = QUEEN;
-		}
-		else if (m->dst < 1*8) p = QUEEN; // if color is not UPPER then it has to be LOWER and we dont need to check it
+	if (m->capturing_piece != pNONE) { // if we are capturing, remove that piece
+		b->pieces[!b->color_to_move][m->capturing_piece] &= ~one(m->dst);
+		b->occ[!b->color_to_move] &= ~one(m->dst); // clear enemy the occ mask
 	}
 
-	clearPos(b, m->dst); // remove the piece were capturing
-	b->pieces[!b->color][p] |= ones(m->dst); // paste new piece on that position
+
+	b->color_to_move = !b->color_to_move;
+}
+
+void unmake_move(struct board* b, struct move* m) {
+	b->color_to_move = !b->color_to_move;
+
+	enum piece p = m->moving_piece;
+
+	b->occ[b->color_to_move] &= ~one(m->dst); // remove the dst from occ
+	b->occ[b->color_to_move] |= one(m->src); // add the src to occ
+
+	b->pieces[b->color_to_move][p] |= one(m->src); // add the place that we are moving from
+
+	if (m->flags & mfPROMOTE) {
+		p = pQUEEN;
+	}
+	if (m->flags & mfCASTLE) {
+		bb add, remove;
+		switch (m->dst) {
+			case 62: remove = 61; add = 63; break;
+			case 58: remove = 59; add = 56; break;
+			case 6:  remove = 5;  add = 7;  break;
+			case 2:  remove = 3;  add = 0;  break;
+			default: assert(false);
+		}
+		b->pieces[b->color_to_move][pROOK] |= one(add);
+		b->pieces[b->color_to_move][pROOK] &= ~one(remove);
+		b->occ[b->color_to_move] |= one(add);
+		b->occ[b->color_to_move] &= ~one(remove);
+	}
+
+	b->pieces[b->color_to_move][p] &= ~one(m->dst); // clear the pos that we moved to
+
+	if (m->capturing_piece != pNONE) {
+		b->pieces[!b->color_to_move][m->capturing_piece] |= one(m->dst);
+		b->occ[!b->color_to_move]|= one(m->dst);
+	}
 }
 

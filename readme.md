@@ -13,14 +13,15 @@
   - [x] pawn promotion (queen only)
   - [ ] en passant
 - [ ] AI
-  - [x] evaluation
-    - [x] pieces
-	- [x] center
-	- [x] moves
-	- [x] checkmate
+  - [ ] evaluation
+    - [ ] pieces
+	- [ ] center
+	- [ ] moves
+	- [ ] checkmate
 	- [ ] unsafe pieces
-  - [x] minimax search
-  - [x] alfa beta pruning
+  - [ ] minimax search
+  - [ ] alfa beta pruning
   - [ ] moves sort
   - [ ] search on another thread
   - [ ] multithreading
+

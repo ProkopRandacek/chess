@@ -1,65 +1,39 @@
 #include "search.h"
 
 #include "board.h"
-#include "debug.h"
 #include "eval.h"
-#include "list.h"
 #include "movegen.h"
-#include "util.h"
+#include "table.h"
 
-extern Move* emptyMoveList[]; // from main.c
+#include <ucw/lib.h>
+#include <ucw/gary.h>
 
-int search(Board* s, int a, int b, int d) {
-	List* l = linit(1, emptyMoveList);
-	genLegalMoves(s, l);
-	lpop(l);
-	if (d == 0 || l->count == 0) {
-		u32 count = l->count;
-		lfree(l);
-		return eval(s, count);
+int search(struct board* s, int a, int b, int d) {
+	struct move* moves;
+	GARY_INIT_SPACE(moves, 20);
+	gen_legal_moves(s, &moves);
+
+	size_t moves_count = GARY_SIZE(moves);
+	if (d == 0 || moves_count == 0) {
+		GARY_FREE(moves);
+		return eval(s, moves_count);
 	}
 
-	int score = checkmateScore;
-	ListNode* pos = l->first;
-	while (pos != NULL) {
-		{
-			Board newB;
-			applyMove(&newB, s, &pos->m);
-			score = -search(&newB, a, b, d - 1);
+	int score = checkmate_score;
+
+	for (size_t pos = 0; pos <= moves_count; pos++) {
+		make_move(s, &moves[pos]);
+		score = -search(s, a, b, d-1);
+		unmake_move(s, &moves[pos]);
+
+		if (score >= b) {
+			GARY_FREE(moves);
+			return b;
 		}
-		if (score >= b) return b;
-		a = max(a, score);
-		ListNode* oldpos = pos;
-		pos = pos->next;
-		lreturnnode(oldpos);
+
+		a = MAX(a, score);
 	}
-	dfree(l);
+	GARY_FREE(moves);
 	return a;
-}
-
-Move* makeAIMove(Move* bestMove, Board* b, int d) {
-	List* l = linit(1, emptyMoveList);
-	genLegalMoves(b, l);
-	lpop(l);
-
-	int maxScore = checkmateScore;
-	int score;
-	ListNode* pos = l->first;
-	while (pos != NULL) {
-		{
-			Board newB;
-			applyMove(&newB, b, &pos->m);
-			score = -search(&newB, -10000, 10000, d - 1);
-		}
-		if (score > maxScore) {
-			maxScore = score;
-			memcpy(bestMove, &pos->m, sizeof(Move)); // need to copy the data because it is gonna be freed
-		}
-		ListNode* oldpos = pos;
-		pos = pos->next;
-		lreturnnode(oldpos);
-	}
-	dfree(l);
-	return bestMove;
 }
 

@@ -1,65 +1,43 @@
-// vim:filetype=c
-#ifndef COMMON_H
-#define COMMON_H
-#define  _GNU_SOURCE // for readline
+#pragma once
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <ucw/lib.h>
 
-// shortcuts
-#define u64 uint64_t
-#define u32 uint32_t
-#define u8  uint8_t
+#define one(x)        (((uint64_t)1) << (x))
+#define one_sq(x, y)  one((x) + (y)*8)
+#define clz(x)        __builtin_clzl(x)
+#define ctz(x)        __builtin_ctzl(x)
+#define popcount(x)   __builtin_popcountl(x)
 
-#include "table.h" // table needs shortcuts
+#define IS_UPPER(x) (((x) >= 'A') && ((x) <= 'Z'))
+#define IS_LOWER(x) (((x) >= 'a') && ((x) <= 'z'))
+#define IS_DIGIT(x) (((x) >= '0') && ((x) <= '9'))
 
-#define ones(x)     (((u64)1) << (x))
-#define mask(x, y)  ones((x) + (y) * 8)
-#define clz(x)      __builtin_clzl(x)
-#define ctz(x)      __builtin_ctzl(x)
-#define popcount(x) __builtin_popcountl(x)
+//! Prints a formatted string.
+#define log(fmt, ...) printf("%s:%d (%s) - " fmt "\n", __FILE__, __LINE__, __func__, ## __VA_ARGS__)
 
-enum Sides {
-	// I cant call those WHITE and BLACK since these names are already used by raylib :c
-	LOWER = 0, // white
-	UPPER = 1  // black
+//! Prints a formatted string and dies.
+#define err(fmt, ...) log(fmt, ## __VA_ARGS__),exit(1)
+
+//! Die if false
+#define assert(EXR) do { if (unlikely(!(EXR))) log("assertion failed (" #EXR ")"),exit(1); } while(0)
+
+typedef uint64_t bb;
+
+enum piece {
+	pPAWN   = 0,
+	pKNIGHT = 1,
+	pBISHOP = 2,
+	pROOK   = 3,
+	pQUEEN  = 4,
+	pKING   = 5,
+	pNONE   = 6,
 };
 
-enum Piece {
-	PAWN   = 0b000,
-	KNIGHT = 0b001,
-	BISHOP = 0b010,
-	ROOK   = 0b011,
-	QUEEN  = 0b100,
-	KING   = 0b101,
-	EMPTY  = 0b110,
-	//idk  = 0b111,
-};
+enum piece char2piece(char c);
 
-typedef struct Board {
-	u64 pieces[2][6];
-	u64 occ[2];
-	u32 color;
-} Board;
-
-typedef struct Move {
-	u8 src;
-	u8 dst;
-} Move;
-
-typedef struct ListNode ListNode;
-typedef struct ListNode {
-	Move m;
-	ListNode* next;
-} ListNode;
-
-typedef struct List {
-	unsigned int count;
-	ListNode* first;
-	ListNode* last; // for fast append
-} List;
-#endif
+extern char* piece_spelling[];
 
