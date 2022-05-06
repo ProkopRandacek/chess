@@ -1,0 +1,15 @@
+#!/bin/sh
+var=$(basename $1 | tr '.' '_')
+
+echo "const int ${var}_size = " > $2
+
+du $1 -b | cut -f1 >> $2
+
+echo ";" >> $2
+
+echo "const unsigned char $var[] = {" >> $2
+
+od $1 -An -v -tu1 -w20 | sed -e 's/^ *//' -e 's/ \+/, /g' -e 's/$/,/g' >> $2
+
+echo "0};" >> $2
+

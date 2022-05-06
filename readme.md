@@ -2,14 +2,13 @@
 
 ![](./demo.png)
 
-- [ ] gui
+- [x] gui
   - [x] move input
-  - [ ] printing search stats
   - [x] highlighting 
 - [ ] move gen
   - [x] regular moves
   - [x] check/mate logic
-  - [ ] castling
+  - [x] castling
   - [x] pawn promotion (queen only)
   - [ ] en passant
 - [ ] AI
@@ -22,6 +21,4 @@
   - [ ] minimax search
   - [ ] alfa beta pruning
   - [ ] moves sort
-  - [ ] search on another thread
-  - [ ] multithreading
 
