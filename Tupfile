@@ -1,10 +1,17 @@
-CC = cc -fdiagnostics-color=always
-LD = cc -fdiagnostics-color=always
+ifeq (@(PLATFORM),win)
+	TOOL_PREFIX=x86_64-w64-mingw32-
+	BIN_SUFFIX=.exe
+	CFLAGS += -static
+	LDFLAGS += -static
+else
+	TOOL_PREFIX=
+endif
 
-CFLAGS  = -std=gnu17 -Wall -Wextra
-LDFLAGS = -Wl,--gc-sections,-rpath=/usr/local/lib
+CC = $(TOOL_PREFIX)cc
+LD = $(TOOL_PREFIX)cc
 
-export PKG_CONFIG_PATH
+CFLAGS  += -fdiagnostics-color=always -std=gnu17 -Wall -Wextra
+LDFLAGS += -fdiagnostics-color=always -Wl,--gc-sections
 
 ifeq (@(DEBUG),y)
 	CFLAGS += -O0 -g -DDEBUG
@@ -17,10 +24,12 @@ else
 	LDFLAGS += -O3 -flto
 endif
 
-CFLAGS  += `pkgconf --cflags libucw raylib`
-LDFLAGS += `pkgconf --libs libucw raylib`
+ifneq (@(PLATFORM),win)
+	CFLAGS  += `$(TOOL_PREFIX)pkg-config --cflags raylib`
+	LDFLAGS += `$(TOOL_PREFIX)pkg-config --libs raylib`
+endif
 
 : foreach assets/*.png |> ./biem %f %o |> %f.h {ast}
-: foreach *.c | {ast} |> PKG_CONFIG_PATH="/usr/local/lib/pkgconfig" $(CC) $(CFLAGS) -c %f -o %o |> %B.o
-: *.o |> PKG_CONFIG_PATH="/usr/local/lib/pkgconfig" $(LD) %f -o %o $(LDFLAGS) |> chess
+: foreach *.c | {ast} |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
+: *.o |> $(LD) %f -o %o $(LDFLAGS) |> chess$(BIN_SUFFIX)
 

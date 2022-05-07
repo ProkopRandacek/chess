@@ -4,14 +4,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <ucw/lib.h>
-#include <ucw/gary.h>
+#define STB_DS_IMPLEMENTATION
+#include "stb/stb_ds.h"
 
 #define one(x)       (((uint64_t)1) << (x))
 #define one_sq(x, y) one((x) + (y)*8)
 #define clz(x)       __builtin_clzl(x)
 #define ctz(x)       __builtin_ctzl(x)
 #define popcount(x)  __builtin_popcountl(x)
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+#define likely(x) __builtin_expect((x),1)
+#define unlikely(x) __builtin_expect((x),0)
 
 #define IS_UPPER(x) (((x)>='A') && ((x)<='Z'))
 #define IS_LOWER(x) (((x)>='a') && ((x)<='z'))
@@ -24,9 +30,10 @@
 #define err(fmt, ...) log(fmt, ## __VA_ARGS__),exit(1)
 
 //! Die if false
-#define assert(EXR) do { if (unlikely(!(EXR))) { log("assertion failed (" #EXR ")"); exit(1); } } while(0)
+#define asr(EXR) do { if (unlikely(!(EXR))) { log("assertion failed (" #EXR ")"); exit(1); } } while(0)
 
 typedef uint64_t bb;
+typedef uint8_t u8;
 
 enum side {
 	sWHITE = 1,
@@ -132,7 +139,7 @@ enum piece char2piece(char c) {
 	if (c == 'b' || c == 'B') return pBISHOP;
 	if (c == 'k' || c == 'K') return pKING;
 	if (c == 'q' || c == 'Q') return pQUEEN;
-	assert(false);
+	asr(false);
 }
 
 ///////////
@@ -179,7 +186,7 @@ enum piece piece_on(struct board* b, int pos, int color) {
 	for (int i = 0; i < 6; i++)
 		if (b->pieces[color][i] & one(pos))
 			return (enum piece)i;
-	assert(false);
+	asr(false);
 }
 
 void make_move(struct board* b, struct move* m) {
@@ -200,7 +207,7 @@ void make_move(struct board* b, struct move* m) {
 			case 58: add = 59; remove = 56; break;
 			case 6:  add = 5;  remove = 7;  break;
 			case 2:  add = 3;  remove = 0;  break;
-			default: assert(false);
+			default: asr(false);
 		}
 		b->pieces[b->clr][pROOK] |= one(add);
 		b->pieces[b->clr][pROOK] &= ~one(remove);
@@ -247,7 +254,7 @@ void unmake_move(struct board* b, struct move* m) {
 			case 58: remove = 59; add = 56; break;
 			case 6:  remove = 5;  add = 7;  break;
 			case 2:  remove = 3;  add = 0;  break;
-			default: assert(false);
+			default: asr(false);
 		}
 		b->pieces[b->clr][pROOK] |= one(add);
 		b->pieces[b->clr][pROOK] &= ~one(remove);
@@ -361,7 +368,7 @@ void bb2moves(int src, bb b, struct board* board, enum piece mp, enum piece cap,
 		}
 
 		if (!leaves_in_check(board, &mov)) {
-			*GARY_PUSH(*m) = mov;
+			arrpush(*m, mov);
 		}
 	}
 }
@@ -400,7 +407,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 						!is_square_attacked(b, 59) &&
 						!is_square_attacked(b, 58)
 				   ) { // the squares are not attacked
-					*GARY_PUSH(*m) = (struct move) { 60, 58, pKING, pNONE, mfCASTLE, b->csl };
+					arrpush(*m, ((struct move) { 60, 58, pKING, pNONE, mfCASTLE, b->csl }));
 				}
 			}
 		}
@@ -412,7 +419,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 						!is_square_attacked(b, 61) &&
 						!is_square_attacked(b, 62)
 				   ) { // the squares are not attacked
-					*GARY_PUSH(*m) = (struct move) { 60, 62, pKING, pNONE, mfCASTLE, b->csl };
+					arrpush(*m, ((struct move) { 60, 62, pKING, pNONE, mfCASTLE, b->csl }));
 				}
 			}
 		}
@@ -424,7 +431,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 						!is_square_attacked(b, 3) &&
 						!is_square_attacked(b, 4)
 				   ) { // the squares are not attacked
-					*GARY_PUSH(*m) = (struct move) { 4, 2, pKING, pNONE, mfCASTLE, b->csl };
+					arrpush(*m, ((struct move) { 4, 2, pKING, pNONE, mfCASTLE, b->csl }));
 				}
 			}
 		}
@@ -436,7 +443,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 						!is_square_attacked(b, 5) &&
 						!is_square_attacked(b, 6)
 				   ) { // the squares are not attacked
-					*GARY_PUSH(*m) = (struct move) { 4, 6, pKING, pNONE, mfCASTLE, b->csl };
+					arrpush(*m, ((struct move) { 4, 6, pKING, pNONE, mfCASTLE, b->csl }));
 				}
 			}
 		}
@@ -476,44 +483,43 @@ int eval(struct board* b, int moveCount) {
 //////////////////
 
 int _perft(struct board* b, int d) {
-	struct move* moves;
-	int* frames; // indexes where frames start
-	GARY_INIT(moves, 0);
-	GARY_INIT(frames, 1);
-	frames[0] = 0;
+	struct move* moves = NULL;
+	int* frames = NULL; // indexes where frames start
+	arrpush(frames, 0);
 	gen_legal_moves(b, &moves);
 
 	int sum = 1;
 
 	while (1) {
-		int mlast = GARY_SIZE(moves)-1;
-		int flast = GARY_SIZE(frames)-1;
+		int mlast = arrlen(moves)-1;
+		int flast = arrlen(frames)-1;
 
 		if (mlast == frames[flast]) { // if we entered previous frame
 			if (flast == 0) {
 				break;
 			}
 
-			GARY_POP(frames);
+			arrpop(frames);
 			struct move* m = &moves[mlast];
 			unmake_move(b, m);
-			GARY_POP(moves);
+			arrpop(moves);
 		} else { // we are inside a frame
 			if (flast+1 == d) { // if we are too deep
 				sum++;
-				GARY_POP(moves);
+				arrpop(moves);
 			} else { // expand into lower frame
 				struct move* m = &moves[mlast]; // take the move
 
 				make_move(b, m); // expand the moves from this move
 				gen_legal_moves(b, &moves);
 
-				*GARY_PUSH(frames) = mlast; // points to the first move that expanded into this frame
+				arrpush(frames, mlast); // points to the first move that expanded into this frame
 			}
 		}
 	}
 
-	GARY_FREE(moves);
+	arrfree(moves);
+	arrfree(frames);
 	return sum;
 }
 
@@ -521,10 +527,9 @@ void perft(struct board* b, int d) {
 	if (d == 0)
 		return;
 
-	struct move* moves;
-	GARY_INIT(moves, 0);
+	struct move* moves = NULL;
 	gen_legal_moves(b, &moves);
-	size_t moves_count = GARY_SIZE(moves);
+	size_t moves_count = arrlen(moves);
 
 	for (size_t i = 0; i < moves_count; i++) {
 		struct move* m = &moves[i];
@@ -536,13 +541,12 @@ void perft(struct board* b, int d) {
 }
 
 int search(struct board* s, int a, int b, int d) {
-	struct move* moves;
-	GARY_INIT_SPACE(moves, 20);
+	struct move* moves = NULL;
 	gen_legal_moves(s, &moves);
 
-	size_t moves_count = GARY_SIZE(moves);
+	size_t moves_count = arrlen(moves);
 	if (d == 0 || moves_count == 0) {
-		GARY_FREE(moves);
+		arrfree(moves);
 		return eval(s, moves_count);
 	}
 
@@ -554,13 +558,13 @@ int search(struct board* s, int a, int b, int d) {
 		unmake_move(s, &moves[pos]);
 
 		if (score >= b) {
-			GARY_FREE(moves);
+			arrfree(moves);
 			return b;
 		}
 
 		a = MAX(a, score);
 	}
-	GARY_FREE(moves);
+	arrfree(moves);
 	return a;
 }
 
@@ -670,11 +674,10 @@ void render_loop(struct board* b) {
 				moving = true;
 				move_start = hovering;
 				move_piece = piece_on(b, hovering, b->clr);
-				struct move* legal;
-				GARY_INIT(legal, 0);
+				struct move* legal = NULL;
 				gen_legal_moves(b, &legal);
 
-				size_t l = GARY_SIZE(legal);
+				size_t l = arrlen(legal);
 
 				hl_possible = 0;
 				for (size_t i = 0; i < l; i++) {
@@ -691,11 +694,10 @@ void render_loop(struct board* b) {
 
 			move_end = hovering;
 
-			struct move* legal;
-			GARY_INIT(legal, 0);
+			struct move* legal = NULL;
 			gen_legal_moves(b, &legal);
 
-			size_t l = GARY_SIZE(legal);
+			size_t l = arrlen(legal);
 
 			bool ok = false;
 			struct move mov;
@@ -714,7 +716,7 @@ void render_loop(struct board* b) {
 				print_board(b);
 			}
 
-			GARY_FREE(legal);
+			arrfree(legal);
 
 			// execute AI move
 		}
@@ -745,7 +747,7 @@ void render_loop(struct board* b) {
 }
 
 int gui(struct board* b) {
-	SetTraceLogLevel(-10);
+	SetTraceLogLevel(100);
 	InitWindow(BOARD_SIZE, BOARD_SIZE, "chess");
 	SetTargetFPS(60);
 
