@@ -71,7 +71,7 @@ struct move {
 	enum piece moving_piece;
 	enum piece capturing_piece; // can be none
 	enum move_flags flags:2;
-	enum board_castle f:4;
+	enum board_castle csl:4;
 };
 
 struct board {
@@ -239,7 +239,7 @@ void unmake_move(struct board* b, struct move* m) {
 
 	enum piece p = m->moving_piece;
 
-	b->occ[b->clr] &= ~one(m->dst); // remove the dst from occ
+	b->occ[b->clr] &= ~one(m->dst); // remove the dst from occ state from the move
 	b->occ[b->clr] |= one(m->src); // add the src to occ
 
 	b->pieces[b->clr][p] |= one(m->src); // add the place that we are moving from
@@ -268,6 +268,8 @@ void unmake_move(struct board* b, struct move* m) {
 		b->pieces[!b->clr][m->capturing_piece] |= one(m->dst);
 		b->occ[!b->clr]|= one(m->dst);
 	}
+
+	b->csl = m->csl; // restore the csl state from the move
 }
 
 //////////////
