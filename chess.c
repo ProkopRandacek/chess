@@ -2,10 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <limits.h>
 #include <stdbool.h>
 
 #define STB_DS_IMPLEMENTATION
 #include "stb/stb_ds.h"
+// pop but don't return the poped value
+#define arrpopn(a) (stbds_header(a)->length--)
 
 #define one(x)       (((uint64_t)1) << (x))
 #define one_sq(x, y) one((x) + (y)*8)
@@ -34,6 +37,7 @@
 
 typedef uint64_t bb;
 typedef uint8_t u8;
+typedef uint16_t u16;
 
 enum side {
 	sWHITE = 1,
@@ -72,13 +76,21 @@ struct move {
 	enum piece capturing_piece; // can be none
 	enum move_flags flags:2;
 	enum board_castle csl:4;
+	u16 enp;
 };
 
 struct board {
 	bb pieces[2][6];
 	bb occ[2];
+
+	// en passant possible spot 0-7 for columns from left to right, 8 if not possible
+	u16 enp;
+
+	// castling rights
 	enum board_castle csl:4;
-	bool clr;
+
+	// color to move
+	bool clr:1;
 };
 
 const int piece_score[] = {
@@ -100,13 +112,13 @@ char* piece_spelling[] = {
 	[pROOK]   = "rook",
 };
 
-const int checkmate_score = -10000;
+const int checkmate_score = INT_MIN;
 const int center_score = 1;
 const int move_score = 1;
 const bb center = 0x00003C3C3C3C0000;
 const bb pawn_start = 71776119061282560;
 
-const bb promote_spots = 0b1111111100000000000000000000000000000000000000000000000011111111;
+const bb promote_spots = 0xFF000000000000FF;
 
 // bitboards
 const bb ray_attacks[8][64] = {
@@ -142,6 +154,54 @@ enum piece char2piece(char c) {
 	asr(false);
 }
 
+//////////////
+// PRINTING //
+//////////////
+
+void print_bb_line(bb board, int line) {
+	for (int i = 8*line; i < 8*line+8; i++) {
+		bool b = board & one(i) ? true : false;
+		if (b) printf("\e[0;32m");
+		printf(" %d", b);
+		if (b) printf("\e[0m");
+	}
+}
+
+void print_board(struct board* b) {
+	for (int s = 0; s <= 1; s++) {
+		printf("%s\n   OCC               PAWN              KNIGHT            BISHOP            ROOK              QUEEN             KING\n", s == sBLACK ? "BLACK" : "WHITE");
+		for (int line = 0; line < 8; line++) {
+			printf("  "),print_bb_line(b->occ[s],             line);
+			printf("  "),print_bb_line(b->pieces[s][pPAWN],   line);
+			printf("  "),print_bb_line(b->pieces[s][pKNIGHT], line);
+			printf("  "),print_bb_line(b->pieces[s][pBISHOP], line);
+			printf("  "),print_bb_line(b->pieces[s][pROOK],   line);
+			printf("  "),print_bb_line(b->pieces[s][pQUEEN],  line);
+			printf("  "),print_bb_line(b->pieces[s][pKING],   line);
+			printf("\n");
+		}
+	}
+	printf("%s to move\n", b->clr == sBLACK ? "black" : "white");
+	printf("csl: %d %d %d %d\n", (b->csl&1)!=0, (b->csl&2)!=0, (b->csl&4)!=0, (b->csl&8)!=0);
+	printf("enp: %d\n", b->enp);
+}
+
+void print_bb(bb board) {
+	for (int i = 0; i < 64; i++) {
+		bool b = board & one(i) ? true : false;
+		if (b) printf("\e[0;32m");
+		printf(" %d", b);
+		if (b) printf("\e[0m");
+		if (i%8 == 7) printf("\n");
+	}
+	printf("\n");
+}
+
+void print_move(struct move* m) {
+	printf("%c%d%c%d - ", (m->src%8)+'a', (7-m->src/8)+1, (m->dst%8)+'a', (7-m->dst/8)+1 );
+	printf("%s\t%s\t%d\n", piece_spelling[m->moving_piece], piece_spelling[m->capturing_piece], m->flags);
+}
+
 ///////////
 // BOARD //
 ///////////
@@ -150,6 +210,7 @@ void board_load_fen(struct board* b, const char* fen) {
 	memset(b, 0, sizeof(struct board));
 
 	b->csl |= (bcWL | bcWR | bcBL | bcBR); // toggle castle rights on
+	b->enp = 8; // 8 means no en passant moves are possible
 
 	int x = 0, y = 0;
 	int head = 0;
@@ -197,10 +258,11 @@ void make_move(struct board* b, struct move* m) {
 	b->occ[b->clr] &= ~one(m->src); // remove the source from occ
 	b->occ[b->clr] |= one(m->dst); // add the destination to occ
 
+	b->enp = 8; // disable en passant by default
+
 	if (m->flags == mfPROMOTE)
 		p = pQUEEN;
-
-	if (m->flags == mfCASTLE) {
+	else if (m->flags == mfCASTLE) {
 		bb add, remove;
 		switch (m->dst) {
 			case 62: add = 61; remove = 63; break;
@@ -213,23 +275,43 @@ void make_move(struct board* b, struct move* m) {
 		b->pieces[b->clr][pROOK] &= ~one(remove);
 		b->occ[b->clr] |= one(add);
 		b->occ[b->clr] &= ~one(remove);
+		goto SKIP_CAPTURE_CHECK;
+	} else if (m->flags == mfENPASS) {
+		int remove = m->dst + 8*(b->clr*2-1); // + or - 8 depending on the side that is playing
+		b->pieces[!b->clr][pPAWN] &= ~one(remove);
+		b->occ[!b->clr] &= ~one(remove);
+	} else {
+		if (m->moving_piece == pPAWN) { // en passant check
+			// If a pawn just moved from one of the starting rows to one of the double push rows
+			// it must have done a double push
+			if ((one(m->src) & 0x00FF00000000FF00) && (one(m->dst) & 0x000000FFFF000000)) {
+				b->enp = m->src%8;
+				goto SKIP_CAPTURE_CHECK;
+			}
+		}
 	}
-
-	b->pieces[b->clr][p] |= one(m->dst); // paste new piece on that position
 
 	if (m->capturing_piece != pNONE) { // if we are capturing, remove that piece
 		b->pieces[!b->clr][m->capturing_piece] &= ~one(m->dst);
 		b->occ[!b->clr] &= ~one(m->dst); // clear enemy the occ mask
 	}
 
+SKIP_CAPTURE_CHECK:
+
+	b->pieces[b->clr][p] |= one(m->dst); // paste new piece on that position
+
 	// taking away castling rights
 	if (!(b->occ[sWHITE] & one(60))) b->csl &= ~(bcWL|bcWR);
-	if (!(b->occ[sWHITE] & one(56))) b->csl &= ~bcWL;
-	if (!(b->occ[sWHITE] & one(63))) b->csl &= ~bcWR;
+	else {
+		if (!(b->occ[sWHITE] & one(56))) b->csl &= ~bcWL;
+		if (!(b->occ[sWHITE] & one(63))) b->csl &= ~bcWR;
+	}
 
 	if (!(b->occ[sBLACK] & one(4))) b->csl &= ~(bcBL|bcBR);
-	if (!(b->occ[sBLACK] & one(0))) b->csl &= ~bcBL;
-	if (!(b->occ[sBLACK] & one(7))) b->csl &= ~bcBR;
+	else {
+		if (!(b->occ[sBLACK] & one(0))) b->csl &= ~bcBL;
+		if (!(b->occ[sBLACK] & one(7))) b->csl &= ~bcBR;
+	}
 
 	b->clr = !b->clr;
 }
@@ -246,8 +328,7 @@ void unmake_move(struct board* b, struct move* m) {
 
 	if (m->flags == mfPROMOTE) {
 		p = pQUEEN;
-	}
-	if (m->flags == mfCASTLE) {
+	} else if (m->flags == mfCASTLE) {
 		bb add, remove;
 		switch (m->dst) {
 			case 62: remove = 61; add = 63; break;
@@ -260,16 +341,24 @@ void unmake_move(struct board* b, struct move* m) {
 		b->pieces[b->clr][pROOK] &= ~one(remove);
 		b->occ[b->clr] |= one(add);
 		b->occ[b->clr] &= ~one(remove);
+		goto SKIP_CAPTURE_CHECK;
+	} else if (m->flags == mfENPASS) {
+		int remove = m->dst + 8*(b->clr*2-1); // + or - 8 depending on the side that is playing
+		b->pieces[!b->clr][pPAWN] |= one(remove);
+		b->occ[!b->clr] |= one(remove);
+		goto SKIP_CAPTURE_CHECK;
 	}
-
-	b->pieces[b->clr][p] &= ~one(m->dst); // clear the pos that we moved to
 
 	if (m->capturing_piece != pNONE) {
 		b->pieces[!b->clr][m->capturing_piece] |= one(m->dst);
 		b->occ[!b->clr]|= one(m->dst);
 	}
+SKIP_CAPTURE_CHECK:
+
+	b->pieces[b->clr][p] &= ~one(m->dst); // clear the pos that we moved to
 
 	b->csl = m->csl; // restore the csl state from the move
+	b->enp = m->enp; // and enp state
 }
 
 //////////////
@@ -311,7 +400,7 @@ bb gen_n_moves_bb(int sq, struct board* b) {
 
 bb gen_p_moves_bb(int sq, struct board* b) {
 	bb occ = b->occ[0] | b->occ[1];
-	bb att = pawn_attacks[b->clr][sq] & b->occ[!b->clr];
+	bb att = pawn_attacks[b->clr][sq] & (b->occ[!b->clr]);
 
 	if (b->clr) {
 		att |= (one(sq) >> 8) & ~occ;
@@ -363,7 +452,7 @@ void bb2moves(int src, bb b, struct board* board, enum piece mp, enum piece cap,
 		if (!(one(i) & b))
 			continue;
 
-		struct move mov = (struct move){src, i, mp, cap, f, board->csl};
+		struct move mov = (struct move){src, i, mp, cap, f, board->csl, board->enp};
 
 		if ((mov.moving_piece == pPAWN) && (one(mov.dst) & promote_spots)) {
 			mov.flags = mfPROMOTE;
@@ -394,7 +483,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 					bb2moves(i, movebb & b->pieces[!b->clr][pKING  ], b, p, pKING  , 0, m);
 					bb2moves(i, movebb & b->pieces[!b->clr][pKNIGHT], b, p, pKNIGHT, 0, m);
 					bb2moves(i, movebb & b->pieces[!b->clr][pPAWN  ], b, p, pPAWN  , 0, m);
-					bb2moves(i, only_quiet_bb(movebb, b)                      , b, p, pNONE  , 0, m); // not capturing moves
+					bb2moves(i, only_quiet_bb(movebb, b)            , b, p, pNONE  , 0, m); // not capturing moves
 				}
 			}
 		}
@@ -402,51 +491,60 @@ void gen_legal_moves(struct board* b, struct move** m) {
 
 	// castling
 	if (b->clr == sWHITE) {
-		if (b->csl & bcWL) { // king and rook haven't moved
-			if (!((b->occ[!b->clr]|b->occ[b->clr]) & one(59))) { // the between squares are empty
-				if (
-						!is_square_attacked(b, 60) &&
-						!is_square_attacked(b, 59) &&
-						!is_square_attacked(b, 58)
-				   ) { // the squares are not attacked
-					arrpush(*m, ((struct move) { 60, 58, pKING, pNONE, mfCASTLE, b->csl }));
-				}
+		if (b->csl & bcWL && !((b->occ[!b->clr]|b->occ[b->clr]) & one(59))) { // the between squares are empty
+			if (
+					!is_square_attacked(b, 60) &&
+					!is_square_attacked(b, 59) &&
+					!is_square_attacked(b, 58)
+			   ) { // the squares are not attacked
+				arrpush(*m, ((struct move) { 60, 58, pKING, pNONE, mfCASTLE, b->csl, b->enp }));
 			}
 		}
-
-		if (b->csl & bcWR) {
-			if (!((b->occ[!b->clr]|b->occ[b->clr]) & one(61))) {
-				if (
-						!is_square_attacked(b, 60) &&
-						!is_square_attacked(b, 61) &&
-						!is_square_attacked(b, 62)
-				   ) { // the squares are not attacked
-					arrpush(*m, ((struct move) { 60, 62, pKING, pNONE, mfCASTLE, b->csl }));
-				}
+		if (b->csl & bcWR && !((b->occ[!b->clr]|b->occ[b->clr]) & one(61))) {
+			if (
+					!is_square_attacked(b, 60) &&
+					!is_square_attacked(b, 61) &&
+					!is_square_attacked(b, 62)
+			   ) { // the squares are not attacked
+				arrpush(*m, ((struct move) { 60, 62, pKING, pNONE, mfCASTLE, b->csl, b->enp }));
 			}
 		}
 	} else {
-		if (b->csl & bcBL) {
-			if (!((b->occ[!b->clr]|b->occ[b->clr]) & one(3))) {
-				if (
-						!is_square_attacked(b, 2) &&
-						!is_square_attacked(b, 3) &&
-						!is_square_attacked(b, 4)
-				   ) { // the squares are not attacked
-					arrpush(*m, ((struct move) { 4, 2, pKING, pNONE, mfCASTLE, b->csl }));
-				}
+		if (b->csl & bcBL && !((b->occ[!b->clr]|b->occ[b->clr]) & one(3))) {
+			if (
+					!is_square_attacked(b, 2) &&
+					!is_square_attacked(b, 3) &&
+					!is_square_attacked(b, 4)
+			   ) { // the squares are not attacked
+				arrpush(*m, ((struct move) { 4, 2, pKING, pNONE, mfCASTLE, b->csl, b->enp }));
 			}
 		}
+		if (b->csl & bcBR && !((b->occ[!b->clr]|b->occ[b->clr]) & one(5))) {
+			if (
+					!is_square_attacked(b, 4) &&
+					!is_square_attacked(b, 5) &&
+					!is_square_attacked(b, 6)
+			   ) { // the squares are not attacked
+				arrpush(*m, ((struct move) { 4, 6, pKING, pNONE, mfCASTLE, b->csl, b->enp }));
+			}
+		}
+	}
 
-		if (b->csl & bcBR) {
-			if (!((b->occ[!b->clr]|b->occ[b->clr]) & one(5))) {
-				if (
-						!is_square_attacked(b, 4) &&
-						!is_square_attacked(b, 5) &&
-						!is_square_attacked(b, 6)
-				   ) { // the squares are not attacked
-					arrpush(*m, ((struct move) { 4, 6, pKING, pNONE, mfCASTLE, b->csl }));
-				}
+	// en passant
+	if (b->enp != 8) {
+		int enp_target = 40 - (3*8*b->clr) + b->enp;
+		bb att = pawn_attacks[!b->clr][enp_target] & b->pieces[b->clr][pPAWN];
+		if (att) {
+			int src = ctz(att); // gets pos of one of the at most 2 bits that are on
+			struct move mov = ((struct move) { src, enp_target, pPAWN, pPAWN, mfENPASS, b->csl, b->enp });
+			print_move(&mov);
+			arrpush(*m, mov);
+			att &= ~one(src);
+			if (att) {
+				int src = ctz(att); // gets pos of one of the at most 2 bits that are on
+				struct move mov = ((struct move) { src, enp_target, pPAWN, pPAWN, mfENPASS, b->csl, b->enp });
+				print_move(&mov);
+				arrpush(*m, mov);
 			}
 		}
 	}
@@ -501,14 +599,14 @@ int _perft(struct board* b, int d) {
 				break;
 			}
 
-			arrpop(frames);
+			arrpopn(frames);
 			struct move* m = &moves[mlast];
 			unmake_move(b, m);
-			arrpop(moves);
+			arrpopn(moves);
 		} else { // we are inside a frame
 			if (flast+1 == d) { // if we are too deep
 				sum++;
-				arrpop(moves);
+				arrpopn(moves);
 			} else { // expand into lower frame
 				struct move* m = &moves[mlast]; // take the move
 
@@ -570,57 +668,11 @@ int search(struct board* s, int a, int b, int d) {
 	return a;
 }
 
-//////////////
-// PRINTING //
-//////////////
-
-void print_bb_line(bb board, int line) {
-	for (int i = 8*line; i < 8*line+8; i++) {
-		bool b = board & one(i) ? true : false;
-		if (b) printf("\e[0;32m");
-		printf(" %d", b);
-		if (b) printf("\e[0m");
-	}
-}
-
-void print_board(struct board* b) {
-	for (int s = 0; s <= 1; s++) {
-		printf("%s\n   OCC               PAWN              KNIGHT            BISHOP            ROOK              QUEEN             KING\n", s == sBLACK ? "BLACK" : "WHITE");
-		for (int line = 0; line < 8; line++) {
-			printf("  "),print_bb_line(b->occ[s],             line);
-			printf("  "),print_bb_line(b->pieces[s][pPAWN],   line);
-			printf("  "),print_bb_line(b->pieces[s][pKNIGHT], line);
-			printf("  "),print_bb_line(b->pieces[s][pBISHOP], line);
-			printf("  "),print_bb_line(b->pieces[s][pROOK],   line);
-			printf("  "),print_bb_line(b->pieces[s][pQUEEN],  line);
-			printf("  "),print_bb_line(b->pieces[s][pKING],   line);
-			printf("\n");
-		}
-	}
-	printf("%s to move\n", b->clr == sBLACK ? "black" : "white");
-	printf("csl: %d %d %d %d\n", (b->csl&1)!=0, (b->csl&2)!=0, (b->csl&4)!=0, (b->csl&8)!=0);
-}
-
-void print_bb(bb board) {
-	for (int i = 0; i < 64; i++) {
-		bool b = board & one(i) ? true : false;
-		if (b) printf("\e[0;32m");
-		printf(" %d", b);
-		if (b) printf("\e[0m");
-		if (i%8 == 7) printf("\n");
-	}
-	printf("\n");
-}
-
-void print_move(struct move* m) {
-	printf("%c%d%c%d - ", (m->src%8)+'a', (7-m->src/8)+1, (m->dst%8)+'a', (7-m->dst/8)+1 );
-	printf("%s\t%s\t%d\n", piece_spelling[m->moving_piece], piece_spelling[m->capturing_piece], m->flags);
-}
-
 /////////
 // GUI //
 /////////
 
+#ifdef GUI
 #include <raylib.h>
 #include "assets/bb.png.h"
 #include "assets/bk.png.h"
@@ -653,6 +705,8 @@ void render_loop(struct board* b) {
 	int move_start = 0;
 	int move_end = 0;
 	enum piece move_piece = 0;
+
+	struct move* undo_stack = NULL;
 
 	Vector2 board_cursor = {0, 0}; // cursor position within the board. can be negative if the cursor is top/left of the board
 	Vector2 cursor = {0, 0}; // cursor position within the window.
@@ -715,12 +769,20 @@ void render_loop(struct board* b) {
 				print_move(&mov);
 				hl_changed = one(mov.src)|one(mov.dst);
 				make_move(b, &mov);
+				arrpush(undo_stack, mov);
 				print_board(b);
 			}
 
 			arrfree(legal);
 
 			// execute AI move
+		}
+
+		if (IsKeyPressed(KEY_Z) && IsKeyDown(KEY_LEFT_CONTROL) && arrlen(undo_stack) > 0) {
+			struct move m = arrpop(undo_stack);
+			unmake_move(b, &m);
+			hl_changed = 0;
+			print_board(b);
 		}
 
 		BeginDrawing(); {
@@ -740,6 +802,12 @@ void render_loop(struct board* b) {
 					}
 
 					if (hl_possible & one_sq(x, y)) DrawCircle(x*TILE_SIZE + TILE_SIZE/2, y*TILE_SIZE + TILE_SIZE/2, TILE_SIZE/7, (Color){186,202,68,100});
+
+					if (IsKeyDown(KEY_P)) {
+						char n[3];
+						snprintf(n, 3, "%d", y*8+x);
+						DrawText(n, x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE/3*2, ORANGE);
+					}
 				}
 			// moving piece
 			if (moving) DrawTexture(pieces[move_piece + 6*(b->clr)], (int)cursor.x - TILE_SIZE/2, (int)cursor.y - TILE_SIZE / 2, WHITE);
@@ -768,6 +836,7 @@ int gui(struct board* b) {
 
 	return 0;
 }
+#endif // GUI
 
 //////////
 // MAIN //
@@ -777,14 +846,11 @@ int main() {
 	struct board b;
 	board_load_fen(&b, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-	print_board(&b);
-
-#if 1
+#ifdef GUI
 	gui(&b);
 #else
 	int ply = 4;
 	perft(&b, ply);
 #endif
-	print_board(&b);
 }
 

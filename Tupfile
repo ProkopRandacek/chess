@@ -29,6 +29,10 @@ ifneq (@(PLATFORM),win)
 	LDFLAGS += `$(TOOL_PREFIX)pkg-config --libs raylib`
 endif
 
+ifeq (@(GUI),y)
+	CFLAGS += -DGUI
+endif
+
 : foreach assets/*.png |> ./biem %f %o |> %f.h {ast}
 : foreach *.c | {ast} |> $(CC) $(CFLAGS) -c %f -o %o |> %B.o
 : *.o |> $(LD) %f -o %o $(LDFLAGS) |> chess$(BIN_SUFFIX)

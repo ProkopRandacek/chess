@@ -5,12 +5,12 @@
 - [x] gui
   - [x] move input
   - [x] highlighting 
-- [ ] move gen
+- [x] move gen
   - [x] regular moves
   - [x] check/mate logic
   - [x] castling
   - [x] pawn promotion (queen only)
-  - [ ] en passant
+  - [x] en passant
 - [ ] AI
   - [ ] evaluation
     - [ ] pieces
