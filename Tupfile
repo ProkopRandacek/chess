@@ -1,10 +1,9 @@
-ifeq (@(PLATFORM),win)
-	TOOL_PREFIX=x86_64-w64-mingw32-
-	BIN_SUFFIX=.exe
-	CFLAGS += -static
-	LDFLAGS += -static
+ifeq (@(PLATFORM),windows)
+	TOOL_PREFIX = x86_64-w64-mingw32-
+	BIN_SUFFIX = .exe
+	LDFLAGS += -Wl,-Bstatic -lwinpthread
 else
-	TOOL_PREFIX=
+	TOOL_PREFIX =
 endif
 
 CC = $(TOOL_PREFIX)cc
@@ -29,8 +28,8 @@ ifneq (@(PLATFORM),win)
 	LDFLAGS += `$(TOOL_PREFIX)pkg-config --libs raylib`
 endif
 
-ifeq (@(GUI),y)
-	CFLAGS += -DGUI
+ifeq (@(GUI),n)
+	CFLAGS += -DNOGUI
 endif
 
 : foreach assets/*.png |> ./biem %f %o |> %f.h {ast}

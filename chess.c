@@ -197,9 +197,9 @@ void print_bb(bb board) {
 	printf("\n");
 }
 
-void print_move(struct move* m) {
+void print_move(struct move* m, char* sfx) {
 	printf("%c%d%c%d - ", (m->src%8)+'a', (7-m->src/8)+1, (m->dst%8)+'a', (7-m->dst/8)+1 );
-	printf("%s\t%s\t%d\n", piece_spelling[m->moving_piece], piece_spelling[m->capturing_piece], m->flags);
+	printf("%s\t%s\t%d%s", piece_spelling[m->moving_piece], piece_spelling[m->capturing_piece], m->flags, sfx);
 }
 
 ///////////
@@ -209,8 +209,7 @@ void print_move(struct move* m) {
 void board_load_fen(struct board* b, const char* fen) {
 	memset(b, 0, sizeof(struct board));
 
-	b->csl |= (bcWL | bcWR | bcBL | bcBR); // toggle castle rights on
-	b->enp = 8; // 8 means no en passant moves are possible
+	b->csl = 0;
 
 	int x = 0, y = 0;
 	int head = 0;
@@ -232,6 +231,27 @@ void board_load_fen(struct board* b, const char* fen) {
 	}
 	head++; // skip space
 	b->clr = fen[head] == 'w' ? sWHITE : sBLACK;
+	head+=2; // skip space
+
+	// castling rights
+	for (;;) {
+		switch (fen[head++]) {
+			case 'k': b->csl |= bcBR; break;
+			case 'q': b->csl |= bcBL; break;
+			case 'K': b->csl |= bcWR; break;
+			case 'Q': b->csl |= bcWL; break;
+			case ' ': goto FOREND;
+		}
+	}
+FOREND:
+
+	if (fen[head] != '-') {
+		printf("'%c%c%c'\n", fen[head-1], fen[head], fen[head+1]);
+		b->enp = fen[head] - 'a';
+	} else {
+		b->enp = 8; // 8 means no en passant moves are possible
+	}
+	head += 2; // skip the second letter and the space
 
 	// generate occ masks for both sides
 	b->occ[0] = b->pieces[0][0] | b->pieces[0][1] | b->pieces[0][2] | b->pieces[0][3] | b->pieces[0][4] | b->pieces[0][5];
@@ -251,17 +271,14 @@ enum piece piece_on(struct board* b, int pos, int color) {
 }
 
 void make_move(struct board* b, struct move* m) {
-	enum piece p = m->moving_piece; // the piece that we should place
-
-	b->pieces[b->clr][p] &= ~one(m->src); // clear the pos that we are moving the piece from
-
 	b->occ[b->clr] &= ~one(m->src); // remove the source from occ
 	b->occ[b->clr] |= one(m->dst); // add the destination to occ
 
 	b->enp = 8; // disable en passant by default
 
+	enum piece to_clean = m->moving_piece;
 	if (m->flags == mfPROMOTE)
-		p = pQUEEN;
+		to_clean = pPAWN;
 	else if (m->flags == mfCASTLE) {
 		bb add, remove;
 		switch (m->dst) {
@@ -273,6 +290,7 @@ void make_move(struct board* b, struct move* m) {
 		}
 		b->pieces[b->clr][pROOK] |= one(add);
 		b->pieces[b->clr][pROOK] &= ~one(remove);
+		b->pieces[b->clr][pKING] &= ~one(m->src);
 		b->occ[b->clr] |= one(add);
 		b->occ[b->clr] &= ~one(remove);
 		goto SKIP_CAPTURE_CHECK;
@@ -280,8 +298,9 @@ void make_move(struct board* b, struct move* m) {
 		int remove = m->dst + 8*(b->clr*2-1); // + or - 8 depending on the side that is playing
 		b->pieces[!b->clr][pPAWN] &= ~one(remove);
 		b->occ[!b->clr] &= ~one(remove);
+		goto SKIP_CAPTURE_CHECK;
 	} else {
-		if (m->moving_piece == pPAWN) { // en passant check
+		if (m->moving_piece == pPAWN) { // en passant possibility check
 			// If a pawn just moved from one of the starting rows to one of the double push rows
 			// it must have done a double push
 			if ((one(m->src) & 0x00FF00000000FF00) && (one(m->dst) & 0x000000FFFF000000)) {
@@ -298,7 +317,8 @@ void make_move(struct board* b, struct move* m) {
 
 SKIP_CAPTURE_CHECK:
 
-	b->pieces[b->clr][p] |= one(m->dst); // paste new piece on that position
+	b->pieces[b->clr][to_clean] &= ~one(m->src); // clear the pos that we are moving the piece from
+	b->pieces[b->clr][m->moving_piece] |= one(m->dst); // paste new piece on that position
 
 	// taking away castling rights
 	if (!(b->occ[sWHITE] & one(60))) b->csl &= ~(bcWL|bcWR);
@@ -319,15 +339,12 @@ SKIP_CAPTURE_CHECK:
 void unmake_move(struct board* b, struct move* m) {
 	b->clr = !b->clr;
 
-	enum piece p = m->moving_piece;
-
 	b->occ[b->clr] &= ~one(m->dst); // remove the dst from occ state from the move
 	b->occ[b->clr] |= one(m->src); // add the src to occ
 
-	b->pieces[b->clr][p] |= one(m->src); // add the place that we are moving from
-
+	enum piece to_readd = m->moving_piece;
 	if (m->flags == mfPROMOTE) {
-		p = pQUEEN;
+		to_readd = pPAWN;
 	} else if (m->flags == mfCASTLE) {
 		bb add, remove;
 		switch (m->dst) {
@@ -351,11 +368,12 @@ void unmake_move(struct board* b, struct move* m) {
 
 	if (m->capturing_piece != pNONE) {
 		b->pieces[!b->clr][m->capturing_piece] |= one(m->dst);
-		b->occ[!b->clr]|= one(m->dst);
+		b->occ[!b->clr] |= one(m->dst);
 	}
 SKIP_CAPTURE_CHECK:
 
-	b->pieces[b->clr][p] &= ~one(m->dst); // clear the pos that we moved to
+	b->pieces[b->clr][to_readd] |= one(m->src); // add the place that we are moving from
+	b->pieces[b->clr][m->moving_piece] &= ~one(m->dst); // clear the pos that we moved to
 
 	b->csl = m->csl; // restore the csl state from the move
 	b->enp = m->enp; // and enp state
@@ -454,11 +472,16 @@ void bb2moves(int src, bb b, struct board* board, enum piece mp, enum piece cap,
 
 		struct move mov = (struct move){src, i, mp, cap, f, board->csl, board->enp};
 
+		if (leaves_in_check(board, &mov))
+			continue;
+
 		if ((mov.moving_piece == pPAWN) && (one(mov.dst) & promote_spots)) {
 			mov.flags = mfPROMOTE;
-		}
-
-		if (!leaves_in_check(board, &mov)) {
+			arrpush(*m, ((struct move){src, i, pKNIGHT, cap, mfPROMOTE, board->csl, board->enp}));
+			arrpush(*m, ((struct move){src, i, pROOK  , cap, mfPROMOTE, board->csl, board->enp}));
+			arrpush(*m, ((struct move){src, i, pBISHOP, cap, mfPROMOTE, board->csl, board->enp}));
+			arrpush(*m, ((struct move){src, i, pQUEEN , cap, mfPROMOTE, board->csl, board->enp})); // last one is the default for GUI
+		} else {
 			arrpush(*m, mov);
 		}
 	}
@@ -491,7 +514,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 
 	// castling
 	if (b->clr == sWHITE) {
-		if (b->csl & bcWL && !((b->occ[!b->clr]|b->occ[b->clr]) & one(59))) { // the between squares are empty
+		if (b->csl & bcWL && !((b->occ[!b->clr]|b->occ[b->clr]) & (one(57)|one(58)|one(59)) )) { // the between squares are empty
 			if (
 					!is_square_attacked(b, 60) &&
 					!is_square_attacked(b, 59) &&
@@ -500,7 +523,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 				arrpush(*m, ((struct move) { 60, 58, pKING, pNONE, mfCASTLE, b->csl, b->enp }));
 			}
 		}
-		if (b->csl & bcWR && !((b->occ[!b->clr]|b->occ[b->clr]) & one(61))) {
+		if (b->csl & bcWR && !((b->occ[!b->clr]|b->occ[b->clr]) & (one(61)|one(62)))) {
 			if (
 					!is_square_attacked(b, 60) &&
 					!is_square_attacked(b, 61) &&
@@ -510,7 +533,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 			}
 		}
 	} else {
-		if (b->csl & bcBL && !((b->occ[!b->clr]|b->occ[b->clr]) & one(3))) {
+		if (b->csl & bcBL && !((b->occ[!b->clr]|b->occ[b->clr]) & (one(1)|one(2)|one(3)))) {
 			if (
 					!is_square_attacked(b, 2) &&
 					!is_square_attacked(b, 3) &&
@@ -519,7 +542,7 @@ void gen_legal_moves(struct board* b, struct move** m) {
 				arrpush(*m, ((struct move) { 4, 2, pKING, pNONE, mfCASTLE, b->csl, b->enp }));
 			}
 		}
-		if (b->csl & bcBR && !((b->occ[!b->clr]|b->occ[b->clr]) & one(5))) {
+		if (b->csl & bcBR && !((b->occ[!b->clr]|b->occ[b->clr]) & (one(5)|one(6)))) {
 			if (
 					!is_square_attacked(b, 4) &&
 					!is_square_attacked(b, 5) &&
@@ -537,14 +560,14 @@ void gen_legal_moves(struct board* b, struct move** m) {
 		if (att) {
 			int src = ctz(att); // gets pos of one of the at most 2 bits that are on
 			struct move mov = ((struct move) { src, enp_target, pPAWN, pPAWN, mfENPASS, b->csl, b->enp });
-			print_move(&mov);
-			arrpush(*m, mov);
+			if (!leaves_in_check(b, &mov))
+				arrpush(*m, mov);
 			att &= ~one(src);
 			if (att) {
 				int src = ctz(att); // gets pos of one of the at most 2 bits that are on
 				struct move mov = ((struct move) { src, enp_target, pPAWN, pPAWN, mfENPASS, b->csl, b->enp });
-				print_move(&mov);
-				arrpush(*m, mov);
+				if (!leaves_in_check(b, &mov))
+					arrpush(*m, mov);
 			}
 		}
 	}
@@ -582,7 +605,7 @@ int eval(struct board* b, int moveCount) {
 // TREE WALKING //
 //////////////////
 
-int _perft(struct board* b, int d) {
+int _fast_perft(struct board* b, int d) {
 	struct move* moves = NULL;
 	int* frames = NULL; // indexes where frames start
 	arrpush(frames, 0);
@@ -623,7 +646,7 @@ int _perft(struct board* b, int d) {
 	return sum;
 }
 
-void perft(struct board* b, int d) {
+void fast_perft(struct board* b, int d) {
 	if (d == 0)
 		return;
 
@@ -634,10 +657,56 @@ void perft(struct board* b, int d) {
 	for (size_t i = 0; i < moves_count; i++) {
 		struct move* m = &moves[i];
 		make_move(b, m);
-		int sum = _perft(b, d-1);
+		int sum = _fast_perft(b, d-1);
 		unmake_move(b, m);
 		printf("%c%d%c%d - %d\n", (m->src%8)+'a', (7-m->src/8)+1, (m->dst%8)+'a', (7-m->dst/8)+1, sum);
 	}
+	arrfree(moves);
+}
+
+int _perft(struct board* b, int d) {
+	struct move* moves = NULL;
+	gen_legal_moves(b, &moves);
+	int moves_count = arrlen(moves);
+
+	for (int i = 0; i < moves_count; i++) {
+		for (int j = 0; j < d; j++) printf("  ");
+		print_move(&moves[i], "\n");
+	}
+
+	if (d == 1) {
+		arrfree(moves);
+		return moves_count;
+	}
+
+	int sum = 0;
+	for (int i = 0; i < moves_count; i++) {
+		struct move* m = &moves[i];
+		make_move(b, m);
+		sum += _perft(b, d-1);
+		unmake_move(b, m);
+	}
+	arrfree(moves);
+	return sum;
+}
+
+void perft(struct board* b, int d) {
+	asr(d > 1);
+
+	struct move* moves = NULL;
+	gen_legal_moves(b, &moves);
+	size_t moves_count = arrlen(moves);
+
+	for (size_t i = 0; i < moves_count; i++) {
+		struct move* m = &moves[i];
+		make_move(b, m);
+		int sum = _perft(b, d-1);
+		print_board(b);
+		unmake_move(b, m);
+		print_move(m, "");
+		printf(": %d\n", sum);
+	}
+	arrfree(moves);
 }
 
 int search(struct board* s, int a, int b, int d) {
@@ -672,7 +741,7 @@ int search(struct board* s, int a, int b, int d) {
 // GUI //
 /////////
 
-#ifdef GUI
+#ifndef NOGUI
 #include <raylib.h>
 #include "assets/bb.png.h"
 #include "assets/bk.png.h"
@@ -695,6 +764,12 @@ const int tex_size[12] = { bp_png_size, bn_png_size, bb_png_size, br_png_size, b
 
 Texture2D pieces[12];
 
+const Color dark  = (Color){238,238,210,255};
+const Color light = (Color){118,150,86,255};
+const Color highlight = (Color){186,202,68,200};
+const Color debug_text = ORANGE;
+const Color text = ORANGE;
+
 void render_loop(struct board* b) {
 	int hovering = -1; // the square under cursor
 
@@ -702,6 +777,7 @@ void render_loop(struct board* b) {
 	bb hl_possible = 0; // what are the possible moves with this piece that he's holding?
 
 	bool moving = false; // is user moving with a piece?
+	bool promote_move = false; // is the user moving a pawn to promotion?
 	int move_start = 0;
 	int move_end = 0;
 	enum piece move_piece = 0;
@@ -718,11 +794,10 @@ void render_loop(struct board* b) {
 			cursor.y/BOARD_SIZE*8
 		};
 
-		if (board_cursor.x >= 0.0 && board_cursor.x <= 8.0 && board_cursor.y >= 0.0 && board_cursor.y <= 8.0) {
+		if (board_cursor.x >= 0.0 && board_cursor.x <= 8.0 && board_cursor.y >= 0.0 && board_cursor.y <= 8.0)
 			hovering = ((int)board_cursor.x) + ((int)board_cursor.y * 8);
-		} else {
+		else
 			hovering = -1;
-		}
 
 		if (!moving && IsMouseButtonDown(MOUSE_BUTTON_LEFT) && hovering != -1) {
 			if (hovering >= 0 && b->occ[b->clr] & one(hovering)) {
@@ -730,6 +805,12 @@ void render_loop(struct board* b) {
 				moving = true;
 				move_start = hovering;
 				move_piece = piece_on(b, hovering, b->clr);
+
+				if (move_piece == pPAWN && one(move_start) & 0x00FF00000000FF00)
+					promote_move = true;
+				else
+					promote_move = false;
+
 				struct move* legal = NULL;
 				gen_legal_moves(b, &legal);
 
@@ -766,7 +847,7 @@ void render_loop(struct board* b) {
 			}
 
 			if (ok) {
-				print_move(&mov);
+				print_move(&mov, "\n");
 				hl_changed = one(mov.src)|one(mov.dst);
 				make_move(b, &mov);
 				arrpush(undo_stack, mov);
@@ -775,7 +856,7 @@ void render_loop(struct board* b) {
 
 			arrfree(legal);
 
-			// execute AI move
+			// TODO: execute AI move
 		}
 
 		if (IsKeyPressed(KEY_Z) && IsKeyDown(KEY_LEFT_CONTROL) && arrlen(undo_stack) > 0) {
@@ -792,25 +873,35 @@ void render_loop(struct board* b) {
 			for (int y = 0; y < 8; y++)
 				for (int x = 0; x < 8; x++) {
 					Rectangle rec = (Rectangle){x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE};
-					DrawRectangleRec(rec, (x+y)&1 ? (Color){238,238,210,255} : (Color){118,150,86,255});
+					DrawRectangleRec(rec, (x+y)&1 ? dark : light);
 
-					if (hl_changed & one_sq(x, y)) DrawRectangleLinesEx(rec, TILE_SIZE/20, (Color){186,202,68,100});
+					if (hl_changed & one_sq(x, y)) DrawRectangleLinesEx(rec, TILE_SIZE/20, highlight);
 
 					if (((b->occ[0]|b->occ[1])&one_sq(x, y)) && !(moving && (move_start == y*8+x))) {
 						enum side s = b->occ[sWHITE] & one_sq(x, y) ? sWHITE : sBLACK;
 						DrawTexture(pieces[piece_on(b, y*8+x, s) + 6*s], x*TILE_SIZE, y*TILE_SIZE, WHITE);
 					}
 
-					if (hl_possible & one_sq(x, y)) DrawCircle(x*TILE_SIZE + TILE_SIZE/2, y*TILE_SIZE + TILE_SIZE/2, TILE_SIZE/7, (Color){186,202,68,100});
+					if (hl_possible & one_sq(x, y)) DrawCircle(x*TILE_SIZE + TILE_SIZE/2, y*TILE_SIZE + TILE_SIZE/2, TILE_SIZE/7, highlight);
 
 					if (IsKeyDown(KEY_P)) {
 						char n[3];
 						snprintf(n, 3, "%d", y*8+x);
-						DrawText(n, x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE/3*2, ORANGE);
+						DrawText(n, x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE/3*2, debug_text);
 					}
 				}
 			// moving piece
-			if (moving) DrawTexture(pieces[move_piece + 6*(b->clr)], (int)cursor.x - TILE_SIZE/2, (int)cursor.y - TILE_SIZE / 2, WHITE);
+			if (moving) {
+#if 0
+				if (promote_move) {
+					if (hovering =
+					if (board_cursor.y < 0.5f) {
+						move_piece = pPAWN;
+					} else if (board_cursor.
+				}
+#endif
+				DrawTexture(pieces[move_piece + 6*(b->clr)], (int)cursor.x - TILE_SIZE/2, (int)cursor.y - TILE_SIZE / 2, WHITE);
+			}
 
 		} EndDrawing();
 	}
@@ -845,12 +936,23 @@ int gui(struct board* b) {
 int main() {
 	struct board b;
 	board_load_fen(&b, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+	//board_load_fen(&b, "8/P7/8/8/8/8/8/k6K w - - 0 1");
+	//board_load_fen(&b, "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ");
+	print_board(&b);
 
-#ifdef GUI
+#ifndef NOGUI
 	gui(&b);
 #else
-	int ply = 4;
-	perft(&b, ply);
+	int ply = 2;
+	for (int i = 2; i <= ply; i++) {
+#  if 0
+		int z = _perft(&b, i);
+		printf("%d: %d\n", i, z);
+#  else
+		printf("%d:\n", i);
+		perft(&b, i);
+#  endif
+	}
 #endif
 }
 
