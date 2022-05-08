@@ -10,7 +10,7 @@ CC = $(TOOL_PREFIX)cc
 LD = $(TOOL_PREFIX)cc
 
 CFLAGS  += -fdiagnostics-color=always -std=gnu17 -Wall -Wextra
-LDFLAGS += -fdiagnostics-color=always -Wl,--gc-sections
+LDFLAGS += -fdiagnostics-color=always -Wl,--gc-sections -lm
 
 ifeq (@(DEBUG),y)
 	CFLAGS += -O0 -g -DDEBUG

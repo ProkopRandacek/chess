@@ -7,9 +7,9 @@
   - [x] highlighting 
 - [x] move gen
   - [x] regular moves
-  - [x] check/mate logic
+  - [x] check
   - [x] castling
-  - [x] pawn promotion (queen only)
+  - [x] pawn promotion
   - [x] en passant
 - [ ] AI
   - [ ] evaluation

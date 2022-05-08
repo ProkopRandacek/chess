@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <math.h>
 
 #define STB_DS_IMPLEMENTATION
 #include "stb/stb_ds.h"
@@ -840,9 +841,13 @@ void render_loop(struct board* b) {
 			struct move mov;
 			for (size_t i = 0; i < l; i++) {
 				struct move* m = &legal[i];
+				if (promote_move && m->moving_piece != move_piece)
+					continue;
+
 				if (m->src == move_start && m->dst == move_end) {
 					ok = true;
 					mov = *m;
+					break;
 				}
 			}
 
@@ -890,16 +895,18 @@ void render_loop(struct board* b) {
 						DrawText(n, x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE/3*2, debug_text);
 					}
 				}
-			// moving piece
+
 			if (moving) {
-#if 0
 				if (promote_move) {
-					if (hovering =
-					if (board_cursor.y < 0.5f) {
+					if ((hl_possible & one(hovering)) && (one(hovering) & 0xFF000000000000FF)) {
+						float _;
+						bool up   = board_cursor.y < 0.5f;
+						bool left = modff(board_cursor.x, &_) < 0.5f;
+						move_piece = up*2+left+1;
+					} else {
 						move_piece = pPAWN;
-					} else if (board_cursor.
+					}
 				}
-#endif
 				DrawTexture(pieces[move_piece + 6*(b->clr)], (int)cursor.x - TILE_SIZE/2, (int)cursor.y - TILE_SIZE / 2, WHITE);
 			}
 
@@ -935,8 +942,8 @@ int gui(struct board* b) {
 
 int main() {
 	struct board b;
-	board_load_fen(&b, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-	//board_load_fen(&b, "8/P7/8/8/8/8/8/k6K w - - 0 1");
+	//board_load_fen(&b, "rnbqkbnr/pppppppp/////PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+	board_load_fen(&b, "8/2P5/8/8/8/8/8/k6K w - - 0 1");
 	//board_load_fen(&b, "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ");
 	print_board(&b);
 
