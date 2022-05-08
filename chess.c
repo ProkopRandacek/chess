@@ -39,6 +39,7 @@
 typedef uint64_t bb;
 typedef uint8_t u8;
 typedef uint16_t u16;
+typedef uint64_t u64;
 
 enum side {
 	sWHITE = 1,
@@ -665,22 +666,17 @@ void fast_perft(struct board* b, int d) {
 	arrfree(moves);
 }
 
-int _perft(struct board* b, int d) {
+u64 _perft(struct board* b, int d) {
 	struct move* moves = NULL;
 	gen_legal_moves(b, &moves);
 	int moves_count = arrlen(moves);
-
-	for (int i = 0; i < moves_count; i++) {
-		for (int j = 0; j < d; j++) printf("  ");
-		print_move(&moves[i], "\n");
-	}
 
 	if (d == 1) {
 		arrfree(moves);
 		return moves_count;
 	}
 
-	int sum = 0;
+	u64 sum = 0;
 	for (int i = 0; i < moves_count; i++) {
 		struct move* m = &moves[i];
 		make_move(b, m);
@@ -936,6 +932,37 @@ int gui(struct board* b) {
 }
 #endif // GUI
 
+/////////////
+// TESTING //
+/////////////
+
+void perft_test(char* fen, int depth, u64 nodes) {
+	struct board b;
+	board_load_fen(&b, fen);
+	u64 n = _perft(&b, depth);
+	printf("fen %s depth %d ", fen, depth);
+	if (n != nodes)
+		printf("failed: %ld expected %ld got\n", nodes, n),exit(1);
+	else
+		printf("passed (%ld)\n", nodes);
+}
+
+void perft_test_depths(char* fen, int max_depth, u64 nodes[max_depth]) {
+	for (int i = 2; i <= max_depth; i++) {
+		perft_test(fen, i, nodes[i]);
+	}
+}
+
+void test(void) {
+	perft_test_depths("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 "                , 6, (u64[14]){1, 20,  400,  8902,  197281,   4865609,  119060324, 3195901860, 84998978956, 2439530234167, 69352859712417, 2097651003696806, 62854969236701747, 1981066775000396239/*, 61885021521585529237, 2015099950053364471960*/});
+	perft_test_depths("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - "        , 6, (u64[ 7]){1, 48, 2039, 97862, 4085603, 193690690, 8031647685});
+	perft_test_depths("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - "                                   , 6, (u64[ 9]){1, 14,  191,  2812,   43238,    674624,   11030083, 178633661, 3009794393});
+	perft_test_depths("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"         , 6, (u64[ 7]){1,  6,  264,  9467,  422333,  15833292,  706045033});
+	perft_test_depths("r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1"         , 6, (u64[ 7]){1,  6,  264,  9467,  422333,  15833292,  706045033});
+	perft_test_depths("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8  "              , 5, (u64[ 6]){1, 44, 1486, 62379, 2103487,  89941194});
+	perft_test_depths("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 ", 6, (u64[10]){1, 46, 2079, 89890, 3894594, 164075551, 6923051137, 287188994746, 11923589843526, 490154852788714});
+}
+
 //////////
 // MAIN //
 //////////
@@ -946,6 +973,8 @@ int main() {
 	board_load_fen(&b, "8/2P5/8/8/8/8/8/k6K w - - 0 1");
 	//board_load_fen(&b, "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - ");
 	print_board(&b);
+
+	test();
 
 #ifndef NOGUI
 	gui(&b);
